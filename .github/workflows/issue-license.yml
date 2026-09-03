@@ -1,0 +1,48 @@
+name: Лиценз олгох
+
+# Хүсэлт нээгдэх, засагдах, шошго нэмэгдэх бүрд ажиллана. Засагдахад ажиллах нь
+# санаатай: дутуу бөглөсөн маягтыг робот буцаадаг тул хүн засаад хадгалахад
+# шинээр хүсэлт үүсгэлгүйгээр дахин шалгагдана.
+on:
+  issues:
+    types: [opened, edited, reopened, labeled]
+
+permissions:
+  contents: write
+  issues: write
+
+# Бүртгэл нь нэг файл. Хоёр хүсэлт зэрэг ажиллавал нэг нь нөгөөгөө дарж, олгосон
+# лиценз бүртгэлгүй үлдэнэ. Дараалуулна — cancel-in-progress хийвэл яг тэр л
+# алдаа буцаад гарна.
+concurrency:
+  group: license-registry
+  cancel-in-progress: false
+
+jobs:
+  issue:
+    if: contains(github.event.issue.labels.*.name, 'license')
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Түлхүүр гаргах
+        run: node tools/issue-license.mjs
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          ZLW_LICENSE_KEY: ${{ secrets.ZLW_LICENSE_KEY }}
+
+      - name: Бүртгэлийг хадгалах
+        run: |
+          if git diff --quiet -- registry.json; then
+            echo "Бүртгэлд өөрчлөлт алга."
+            exit 0
+          fi
+          git config user.name  "zenith-license-bot"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add registry.json
+          git commit -m "Лиценз олгов — хүсэлт #${{ github.event.issue.number }}"
+          git push

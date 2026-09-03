@@ -1,0 +1,220 @@
+<!DOCTYPE html>
+<html lang="mn">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Татах — Zenith LineWorks</title>
+<meta name="description" content="Zenith LineWorks 1.0.0-г татаж Civil 3D 2026 эсвэл 2027 дээр суулгах заавар.">
+<link rel="stylesheet" href="assets/site.css">
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='7' fill='%23f0a500'/%3E%3Cpath d='M9 8h14l-9 9h9v7H9l9-9H9z' fill='%230a1626'/%3E%3C/svg%3E">
+</head>
+<body>
+
+<header class="top">
+  <div class="wrap">
+    <a class="brand" href="./">
+      <span class="mark">Z</span>
+      <span>Zenith LineWorks<small>Zenith Solar ХХК</small></span>
+    </a>
+    <nav class="top-nav">
+      <a href="./">Нүүр</a>
+      <a class="here" href="download.html">Татах</a>
+      <a href="license.html">Лиценз</a>
+    </nav>
+  </div>
+</header>
+
+<div class="hero">
+  <div class="wrap">
+    <div class="badges">
+      <span class="badge sun">Хувилбар 1.0.0</span>
+      <span class="badge">Windows 64-bit</span>
+      <span class="badge">Админ эрх шаардахгүй</span>
+    </div>
+    <h1>Татаж авах</h1>
+    <p class="lede">
+      Нэг файл. Дотроо бүх зүйлээ агуулж явдаг тул .NET ч, NuGet ч,
+      <code>NETLOAD</code> ч шаардахгүй.
+    </p>
+    <div class="row">
+      <a class="btn btn-sun"
+         href="https://github.com/NOVA-XO/lineworks/releases/latest/download/ZenithLineWorksSetup.exe">
+        <span>ZenithLineWorksSetup.exe<span class="sub">10.8 МБ · 1.0.0</span></span>
+      </a>
+    </div>
+  </div>
+</div>
+
+<section>
+  <div class="wrap">
+    <div class="section-head">
+      <div class="eyebrow">Файлын мэдээлэл</div>
+      <h2>Татсан файлаа шалгах</h2>
+      <p>
+        Татсаны дараа доорх хураангуйтай тааруулж үзвэл файл замдаа гэмтээгүй,
+        солигдоогүйг батална.
+      </p>
+    </div>
+
+    <div class="table-scroll">
+      <table>
+        <tbody>
+          <tr><th style="width: 12rem">Файл</th><td><code>ZenithLineWorksSetup.exe</code></td></tr>
+          <tr><th>Хувилбар</th><td>1.0.0</td></tr>
+          <tr><th>Хэмжээ</th><td>11 306 283 байт (10.8 МБ)</td></tr>
+          <tr><th>Огноо</th><td>2026-09-03</td></tr>
+          <tr>
+            <th>SHA-256</th>
+            <td><code style="word-break: break-all">23fc41f03e00d4b3a3d1ecc2202c17c81e244366e8bdaa11a49e30beb6c6ab4c</code></td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+
+    <p class="muted" style="margin-top: 14px">PowerShell дээр шалгах:</p>
+    <pre>Get-FileHash .\ZenithLineWorksSetup.exe -Algorithm SHA256</pre>
+
+    <div class="note warn">
+      <strong>Windows SmartScreen анхааруулах магадлалтай.</strong> Файл нь
+      худалдаж авсан код-гарын үсгийн гэрчилгээгээр хараахан гарын үсэг
+      зураагүй тул «Windows protected your PC» гэж гарч ирж болно.
+      <strong>More info → Run anyway</strong> дарна. Дээрх SHA-256 таарч байвал
+      файл нь яг манайх мөн.
+    </div>
+  </div>
+</section>
+
+<section class="warm">
+  <div class="wrap">
+    <div class="section-head">
+      <div class="eyebrow">Суулгах</div>
+      <h2>Дөрвөн алхам</h2>
+    </div>
+
+    <ol class="steps">
+      <li>
+        <h3>Civil 3D-г хаах</h3>
+        <p>
+          Нээлттэй байвал суулгагч татгалзаад шалтгааныг хэлнэ. Файл түгжээтэй
+          үед хагас суусан програм бол хамгийн муу төлөв.
+        </p>
+      </li>
+      <li>
+        <h3><code>ZenithLineWorksSetup.exe</code>-г ажиллуулах</h3>
+        <p>
+          Хоёр дарж нээнэ. Админ эрх асуухгүй — бүх зүйл таны хэрэглэгчийн
+          хавтсанд суудаг.
+        </p>
+      </li>
+      <li>
+        <h3>Юу олдсоныг уншиж харах</h3>
+        <p>
+          Суулгагч энэ компьютер дээрх Civil 3D-г өөрөө олж, замыг нь болон
+          <code>AeccDbMgd</code>-ийн хувилбарыг хэвлэнэ. Дүгнэлт нь биш,
+          <em>нотолгоо</em> нь харагдана:
+        </p>
+<pre>Энэ компьютер дээрх Civil 3D:
+  Civil 3D 2027  —  bundle-д код бий  ✓
+      C:\Program Files\Autodesk\AutoCAD 2027
+      AeccDbMgd 13.9.628.0
+  Civil 3D 2026  —  суугаагүй</pre>
+      </li>
+      <li>
+        <h3>Civil 3D-г нээж <code>ZLWABOUT</code> бичих</h3>
+        <p>
+          Хувилбар ба ачаалсан зам гарч ирвэл болсон. <code>NETLOAD</code> хийх
+          шаардлагагүй — bundle нь өөрөө ачаалагдана.
+        </p>
+      </li>
+    </ol>
+
+    <div class="note good">
+      <strong>Яагаад ингэж ажилладаг вэ.</strong> Суулгагч нь bundle-аа
+      <code>%APPDATA%\Autodesk\ApplicationPlugins\ZenithLineWorks.bundle</code>
+      дотор задалдаг. Энэ бол Autodesk-ийн програмууд асахдаа өөрсдөө шалгадаг
+      хавтас — тиймээс гараар ачаалах алхам байхгүй.
+    </div>
+  </div>
+</section>
+
+<section>
+  <div class="wrap">
+    <div class="section-head">
+      <div class="eyebrow">Устгах</div>
+      <h2>Бүрэн устгах</h2>
+      <p>
+        <strong>Start цэс → Zenith LineWorks → «Zenith LineWorks-ийг устгах»</strong>
+      </p>
+    </div>
+
+    <p>Энэ нь гурван зүйлийг арилгана:</p>
+    <div class="table-scroll">
+      <table>
+        <tbody>
+          <tr><th style="width: 13rem">Файлууд</th><td><code>%APPDATA%\Autodesk\ApplicationPlugins\ZenithLineWorks.bundle</code></td></tr>
+          <tr><th>Бүртгэл</th><td>AutoCAD өөрөө бичсэн <code>HKCU\…\Applications\ZenithLineWorks.*</code> түлхүүрүүд — хувилбар, профайл бүрээр</td></tr>
+          <tr><th>Start цэс</th><td>Устгагч өөрийн хавтсыг сүүлд нь өөрөө авч явна</td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <div class="note">
+      Устгасны дараа таны зурган дээр үлдсэн тулгуур, профиль нь энгийн
+      геометр хэвээр үлдэнэ — устахгүй. Тэдгээрийг устгахыг хүсвэл
+      <code>ZLW_</code> угтвартай layer-үүдийг арилгана.
+    </div>
+  </div>
+</section>
+
+<section class="warm">
+  <div class="wrap">
+    <div class="section-head">
+      <div class="eyebrow">Асуудал гарвал</div>
+      <h2>Хамгийн түгээмэл гурав</h2>
+    </div>
+
+    <div class="grid">
+      <div class="card">
+        <h3>«bundle-д код БАЙХГҮЙ»</h3>
+        <p>
+          Тухайн компьютерт Civil 3D-ийн <strong>өөр хувилбар</strong> (жишээ нь
+          2025) суусан байна. Одоогийн bundle нь 2026 ба 2027-д зориулагдсан.
+          Хувилбараа бичиж <a href="https://github.com/NOVA-XO/lineworks/issues">мэдэгдээрэй</a>.
+        </p>
+      </div>
+      <div class="card">
+        <h3>Civil 3D олдсонгүй</h3>
+        <p>
+          Зөвхөн Civil 3D Object Enabler суусан байж болно — тэр нь энгийн
+          AutoCAD-ын харах бүрэлдэхүүн, plugin ачаалдаггүй. Суулгагч нь
+          <code>acad.exe</code> ба <code>C3D\AeccDbMgd.dll</code> хоёуланг
+          шаардана.
+        </p>
+      </div>
+      <div class="card">
+        <h3><code>ZLWABOUT</code> танигдахгүй</h3>
+        <p>
+          Civil 3D-г бүрэн хааж дахин нээнэ үү. Bundle нь програм асахад л
+          уншигддаг тул суулгасны дараа заавал нэг удаа дахин нээх хэрэгтэй.
+        </p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<footer class="bottom">
+  <div class="wrap">
+    <div>
+      <strong>Zenith Solar ХХК</strong>
+      Zenith LineWorks 1.0.0 · Бүх эрх хуулиар хамгаалагдсан
+    </div>
+    <div>
+      <a href="./">Нүүр</a> &nbsp;·&nbsp;
+      <a href="license.html">Лиценз</a> &nbsp;·&nbsp;
+      <a href="https://github.com/NOVA-XO/lineworks/issues">Санал, гомдол</a>
+    </div>
+  </div>
+</footer>
+
+</body>
+</html>
