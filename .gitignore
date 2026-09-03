@@ -8,6 +8,10 @@
 .secrets/
 keys.txt
 
+# Роботын завсрын файлууд. Хариу нь хүсэлт дээр бичигдэх ёстой, repository-д биш.
+reply.md
+reply-label.txt
+
 # Туршилтын үлдэгдэл
 *.lic
 event.json
