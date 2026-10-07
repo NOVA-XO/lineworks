@@ -48,7 +48,8 @@ export const STATUS_MN = {
   active: 'Идэвхтэй', revoked: 'Цуцлагдсан',
 };
 export const KIND_MN = { new: 'Шинэ', renewal: 'Сунгалт' };
-export const EDITION_MN = { trial: 'Туршилтын', full: 'Бүрэн' };
+export const EDITION_MN = { trial: 'Туршилтын', subscription: 'Захиалгат', prime: 'Prime', full: 'Бүрэн' };
+export const PERPETUAL_UNTIL = '9999-12-31';
 export const ROLE_MN = { user: 'Хэрэглэгч', viewer: 'Харагч', admin: 'Админ' };
 
 export const statusPill = (status) => el('span', { class: `status ${status}` }, STATUS_MN[status] ?? status);

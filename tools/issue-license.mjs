@@ -2,7 +2,7 @@
    Лиценз олгогч — ЭЗЭМШИГЧИЙН КОМПЬЮТЕР ДЭЭР ажиллана.
 
      node tools/issue-license.mjs --name "Бат Дорж" --org "ABC ХХК" \
-          --email bat@abc.mn --mid 3F2A-91C0-7B4E-D218 [--days 30] [--edition trial|full] [--no-mail]
+          --email bat@abc.mn --mid 3F2A-91C0-7B4E-D218 [--days 30] [--edition trial|subscription|full] [--no-mail]
 
    2026-10-07-ноос GitHub Actions-ийн робот ХАСАГДСАН. Нийтийн Issue маягт хүсэгчийн
    нэр, байгууллага, и-мэйлийг нээлттэй вэбэд тавьж, түлхүүрийг ч мөн нийтэд бичдэг
@@ -90,7 +90,10 @@ if (!org) { problems.push('--org хоосон.'); }
 if (!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(email)) { problems.push('--email буруу.'); }
 if (mid.length !== 16) { problems.push('--mid нь 16 оронтой hex байх ёстой (ZLWLICENSE цонхонд харагдана).'); }
 if (!Number.isInteger(days) || days < 1 || days > 3660) { problems.push('--days 1–3660 бүхэл тоо.'); }
-if (!['trial', 'full'].includes(edition)) { problems.push('--edition нь trial эсвэл full.'); }
+/* prime-ыг ЗӨВХӨН портал олгоно: нийт 10-ын хязгаарыг сан тоолдог, энэ хэрэгсэл тоолж чадахгүй. */
+if (!['trial', 'subscription', 'full'].includes(edition)) {
+  problems.push('--edition нь trial, subscription эсвэл full. Prime-ыг зөвхөн порталаар олгоно.');
+}
 if (problems.length) { fail(problems.join(' ')); }
 
 /* -------------------------------------------------------------- дугаар -- */

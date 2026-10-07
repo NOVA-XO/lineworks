@@ -1,6 +1,6 @@
 import {
   supabase, configured, $, el, show, say, explain, wireNav, copy, download,
-  machineDigits, formatMachine, date, daysLeft, statusPill, KIND_MN, EDITION_MN,
+  machineDigits, formatMachine, date, daysLeft, statusPill, KIND_MN, EDITION_MN, PERPETUAL_UNTIL,
 } from './portal.js';
 import { INSTALLER_PATH } from './portal-config.js';
 
@@ -105,8 +105,8 @@ async function loadLicences(userId) {
       el('td', { class: 'mono' }, lic.no),
       el('td', { class: 'mono' }, formatMachine(lic.machine_id)),
       el('td', {}, EDITION_MN[lic.edition] ?? lic.edition),
-      el('td', {}, `${date(lic.valid_from)} — ${date(lic.valid_until)}`),
-      el('td', {}, `${daysLeft(lic.valid_until)} хоног`),
+      el('td', {}, `${date(lic.valid_from)} — ${lic.valid_until === PERPETUAL_UNTIL ? 'хугацаагүй' : date(lic.valid_until)}`),
+      el('td', {}, lic.valid_until === PERPETUAL_UNTIL ? '—' : `${daysLeft(lic.valid_until)} хоног`),
       el('td', {}, statusPill(lic.status)),
       el('td', {}, el('div', { class: 'actions' },
         el('button', { class: 'btn btn-line', type: 'button', onclick: () => copy(lic.license_text, $('#licenses-msg')) }, 'Хуулах'),
@@ -115,7 +115,8 @@ async function loadLicences(userId) {
   }
   const renews = $('#renews');
   renews.replaceChildren(el('option', { value: '' }, '— сонгох —'),
-    ...data.map((lic) => el('option', { value: lic.id }, `${lic.no} · ${formatMachine(lic.machine_id)} · ${date(lic.valid_until)} хүртэл`)));
+    ...data.filter((lic) => lic.valid_until !== PERPETUAL_UNTIL)
+      .map((lic) => el('option', { value: lic.id }, `${lic.no} · ${formatMachine(lic.machine_id)} · ${date(lic.valid_until)} хүртэл`)));
 }
 
 async function loadRequests(userId) {

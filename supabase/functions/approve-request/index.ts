@@ -1,7 +1,11 @@
 /* =============================================================================
    approve-request — админ хүсэлтийг батлахад лиценз гаргана.
 
-   POST { request_id: number, days: 1..3660, edition: 'trial' | 'full' }
+   POST { request_id: number, edition: 'trial' | 'subscription' | 'prime', days?: 1..3660 }
+     trial        — days хоног (анхдагч 30);
+     subscription — 365 хоног; сунгалт бол хуучин лицензийн дуусах өдрөөс үргэлжилнэ
+                    (эрт сунгавал үлдсэн хоног алдагдахгүй);
+     prime        — хугацаагүй (9999-12-31). Нийт 10 — сангийн guard_prime триггер мөрдүүлнэ.
    Authorization: Bearer <хэрэглэгчийн JWT> (supabase.functions.invoke өөрөө өгнө)
 
    ЭНЭ ФУНКЦ ЛИЦЕНЗ ЗОХИОЖ ЧАДНА, тиймээс хаалга нь гурвалсан:
@@ -15,7 +19,9 @@
    ========================================================================== */
 
 import { createClient } from 'npm:@supabase/supabase-js@2';
-import { issueLicense, ulaanbaatarDate, addDays } from '../_shared/license-core.js';
+import {
+  issueLicense, ulaanbaatarDate, addDays, PERPETUAL_UNTIL, SUBSCRIPTION_DAYS,
+} from '../_shared/license-core.js';
 
 const SITE = Deno.env.get('ZLW_SITE_ORIGIN') ?? 'https://nova-xo.github.io';
 
@@ -67,14 +73,16 @@ Deno.serve(async (req) => {
   try { body = await req.json(); } catch { return reply(400, { error: 'Хүсэлтийн бие JSON биш.' }); }
   const requestId = Number(body.request_id);
   const days = Number(body.days ?? 30);
-  const edition = body.edition === 'full' ? 'full' : body.edition === 'trial' || body.edition == null ? 'trial' : null;
+  const edition = ['trial', 'subscription', 'prime'].includes(body.edition as string)
+    ? (body.edition as string)
+    : body.edition == null ? 'trial' : null;
   if (!Number.isInteger(requestId) || requestId <= 0) { return reply(400, { error: 'request_id буруу.' }); }
   if (!Number.isInteger(days) || days < 1 || days > 3660) { return reply(400, { error: 'Хоног 1–3660.' }); }
-  if (!edition) { return reply(400, { error: 'Төрөл trial эсвэл full.' }); }
+  if (!edition) { return reply(400, { error: 'Төрөл: trial, subscription эсвэл prime.' }); }
 
   const { data: request } = await admin
     .from('requests')
-    .select('id, user_id, machine_id, status, profiles!requests_user_id_fkey(full_name, organization)')
+    .select('id, user_id, machine_id, status, kind, renews_license, profiles!requests_user_id_fkey(full_name, organization)')
     .eq('id', requestId)
     .single();
   if (!request) { return reply(404, { error: 'Хүсэлт олдсонгүй.' }); }
@@ -82,7 +90,22 @@ Deno.serve(async (req) => {
 
   const profile = request.profiles as unknown as { full_name: string; organization: string };
   const from = ulaanbaatarDate();
-  const till = addDays(from, days - 1);
+  let till: string;
+  if (edition === 'prime') {
+    till = PERPETUAL_UNTIL;
+  } else if (edition === 'subscription') {
+    let start = from;
+    if (request.kind === 'renewal' && request.renews_license) {
+      const { data: old } = await admin.from('licenses')
+        .select('valid_until, status').eq('id', request.renews_license).single();
+      if (old?.status === 'active' && old.valid_until >= from && old.valid_until < PERPETUAL_UNTIL) {
+        start = addDays(old.valid_until, 1);
+      }
+    }
+    till = addDays(start, SUBSCRIPTION_DAYS - 1);
+  } else {
+    till = addDays(from, days - 1);
+  }
   const { data: no, error: noError } = await admin.rpc('next_license_no', { p_year: Number(from.slice(0, 4)) });
   if (noError || !no) { return reply(500, { error: 'Лицензийн дугаар гаргаж чадсангүй.' }); }
 
@@ -108,7 +131,10 @@ Deno.serve(async (req) => {
     })
     .select('id, no, valid_from, valid_until')
     .single();
-  if (insertError || !licence) { return reply(500, { error: 'Лицензийг хадгалж чадсангүй.' }); }
+  if (insertError || !licence) {
+    const text = insertError?.message ?? '';
+    return reply(text.includes('Prime') ? 409 : 500, { error: text.includes('Prime') ? text : 'Лицензийг хадгалж чадсангүй.' });
+  }
 
   // Conditional on still pending: of two admins clicking at once, only one wins.
   const { data: decided } = await admin

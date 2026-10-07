@@ -12,6 +12,12 @@
 
 const enc = new TextEncoder();
 
+/* trial — админ хоног сонгоно; subscription — 365 хоног; prime — хугацаагүй (нийт 10,
+   сан мөрдүүлнэ); full — 2026-10-07-ноос өмнө олгосон, шинээр олгохгүй. */
+export const EDITIONS = ['trial', 'subscription', 'prime', 'full'];
+export const PERPETUAL_UNTIL = '9999-12-31';
+export const SUBSCRIPTION_DAYS = 365;
+
 export function b64url(bytes) {
   let s = '';
   for (const b of new Uint8Array(bytes)) { s += String.fromCharCode(b); }
@@ -52,13 +58,13 @@ function oneLine(text, most) {
 
 /**
  * @param {{ privatePem: string, dataKeyB64: string, pepperB64: string }} secrets
- * @param {{ no: string, to: string, org: string, edition: 'trial'|'full', mid: string, from: string, till: string }} claim
+ * @param {{ no: string, to: string, org: string, edition: string, mid: string, from: string, till: string }} claim
  * @returns {Promise<{ text: string, armoured: string }>}
  */
 export async function issueLicense(secrets, claim) {
   const mid = normaliseMachineId(claim.mid);
   if (mid.length !== 16) { throw new Error('Компьютерийн дугаар 16 оронтой hex байх ёстой.'); }
-  if (!['trial', 'full'].includes(claim.edition)) { throw new Error('Төрөл буруу.'); }
+  if (!EDITIONS.includes(claim.edition)) { throw new Error('Төрөл буруу.'); }
 
   const dataKey = fromBase64(secrets.dataKeyB64);
   const pepper = fromBase64(secrets.pepperB64);

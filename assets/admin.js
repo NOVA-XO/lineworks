@@ -1,10 +1,17 @@
 import {
   supabase, configured, $, el, show, say, explain, wireNav,
-  formatMachine, date, statusPill, KIND_MN, EDITION_MN, ROLE_MN,
+  formatMachine, date, statusPill, KIND_MN, EDITION_MN, ROLE_MN, PERPETUAL_UNTIL,
 } from './portal.js';
 
 let me = null;        // { id, role }
 let canWrite = false; // admin AND aal2 — the database enforces the same rule
+let primeLeft = null;  // Prime seats left of 10; the database enforces the cap
+
+async function loadPrimeLeft() {
+  const { data, error } = await supabase.rpc('prime_remaining');
+  primeLeft = error ? null : data;
+  $('#prime-left').textContent = primeLeft === null ? '' : `Prime: ${primeLeft} / 10 үлдсэн`;
+}
 
 async function start() {
   if (!configured) { $('#gate').textContent = 'Портал хараахан тохируулагдаагүй байна.'; return; }
@@ -68,7 +75,7 @@ function openConsole() {
       for (const p of document.querySelectorAll('[data-panel]')) { p.hidden = p.dataset.panel !== tab.dataset.tab; }
     });
   }
-  loadRequests();
+  loadPrimeLeft().then(loadRequests);
   loadUsers();
   loadLicences();
 }
@@ -89,7 +96,12 @@ async function loadRequests() {
     if (r.status === 'pending' && canWrite) {
       const days = el('input', { type: 'number', min: 1, max: 3660, value: 30, style: 'width:5.5em', 'aria-label': 'Хоног' });
       const edition = el('select', { 'aria-label': 'Төрөл' },
-        el('option', { value: 'trial' }, 'Туршилтын'), el('option', { value: 'full' }, 'Бүрэн'));
+        el('option', { value: 'subscription' }, 'Захиалгат · 365 хоног'),
+        el('option', { value: 'trial' }, 'Туршилтын'),
+        el('option', { value: 'prime', disabled: primeLeft !== null && primeLeft <= 0 }, `Prime · хугацаагүй (${primeLeft ?? '?'} үлдсэн)`));
+      const syncDays = () => { days.disabled = edition.value !== 'trial'; };
+      edition.addEventListener('change', syncDays);
+      syncDays();
       actions.append(days, edition,
         el('button', { class: 'btn btn-sun', type: 'button', onclick: () => approve(r.id, Number(days.value), edition.value) }, 'Батлах'),
         el('button', { class: 'btn btn-line', type: 'button', onclick: () => reject(r.id) }, 'Татгалзах'));
@@ -107,7 +119,8 @@ async function loadRequests() {
 }
 
 async function approve(id, days, edition) {
-  if (!Number.isInteger(days) || days < 1 || days > 3660) { say($('#requests-msg'), 'Хоног 1–3660.', 'err'); return; }
+  if (edition === 'trial' && (!Number.isInteger(days) || days < 1 || days > 3660)) { say($('#requests-msg'), 'Хоног 1–3660.', 'err'); return; }
+  if (edition === 'prime' && !confirm(`Prime лиценз хугацаагүй бөгөөд буцааж авах боломжгүй. ${primeLeft} үлдснээс 1-ийг олгох уу?`)) { return; }
   say($('#requests-msg'), 'Лиценз гаргаж байна…');
   const { data, error } = await supabase.functions.invoke('approve-request', { body: { request_id: id, days, edition } });
   if (error || data?.error) {
@@ -116,7 +129,9 @@ async function approve(id, days, edition) {
     say($('#requests-msg'), text || explain(error), 'err');
     return;
   }
-  say($('#requests-msg'), `${data.license.no} олголоо (${data.license.valid_from} — ${data.license.valid_until}).`, 'ok');
+  const until = data.license.valid_until === PERPETUAL_UNTIL ? 'хугацаагүй' : data.license.valid_until;
+  say($('#requests-msg'), `${data.license.no} олголоо (${data.license.valid_from} — ${until}).`, 'ok');
+  await loadPrimeLeft();
   loadRequests();
   loadLicences();
 }
@@ -168,7 +183,7 @@ async function loadLicences() {
     body.append(el('tr', {},
       el('td', { class: 'mono' }, l.no), el('td', {}, who(l.profiles)),
       el('td', { class: 'mono' }, formatMachine(l.machine_id)), el('td', {}, EDITION_MN[l.edition] ?? l.edition),
-      el('td', {}, `${date(l.valid_from)} — ${date(l.valid_until)}`), el('td', {}, statusPill(l.status)), el('td', {}, action)));
+      el('td', {}, `${date(l.valid_from)} — ${l.valid_until === PERPETUAL_UNTIL ? 'хугацаагүй' : date(l.valid_until)}`), el('td', {}, statusPill(l.status)), el('td', {}, action)));
   }
 }
 
