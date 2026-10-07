@@ -1,214 +1,177 @@
 /* =============================================================================
-   Лиценз олгогч.
-   -----------------------------------------------------------------------------
-   GitHub Actions дотор ажиллана. Issue form-оор ирсэн хүсэлтийг уншиж, түлхүүр
-   гаргаж, бүртгэлд нэмээд, бичих ёстой хариугаа файлд үлдээнэ.
+   Лиценз олгогч — ЭЗЭМШИГЧИЙН КОМПЬЮТЕР ДЭЭР ажиллана.
 
-   ЭНЭ КОД ӨӨРӨӨ ХАРИУ БИЧДЭГГҮЙ. Шалтгаан нь: хоёр ажиллагаа зэрэг ажиллаж
-   болно. Нэг хүсэлт нээгдэхэд «opened», шошго наагдахад «labeled» гэсэн хоёр
-   үйл явдал гарна. Хоёулаа адилхан хуучин бүртгэлийг уншвал адилхан дугаар
-   гаргаж, хоёр өөр гарын үсэгтэй лиценз бичнэ — нэг дугаартай хоёр хүчинтэй
-   лиценз. Энэ нь яг ийм байдлаар нэг удаа тохиолдсон.
+     node tools/issue-license.mjs --name "Бат Дорж" --org "ABC ХХК" \
+          --email bat@abc.mn --mid 3F2A-91C0-7B4E-D218 [--days 30] [--edition trial|full] [--no-mail]
 
-   Тиймээс шүүр нь push. Бүртгэлээ түрүүлж түлхэж чадсан ажиллагаа л хариу
-   бичих эрхтэй; хожимдсон нь дахин fetch хийж, бүртгэлээс өмнөх лицензийг олж,
-   юу ч хийхгүй гарна. Дараалал нь GitHub-ийн concurrency биш, git-ийн ref л
-   байх ёстой — тэр нь атомын шинжтэй.
+   2026-10-07-ноос GitHub Actions-ийн робот ХАСАГДСАН. Нийтийн Issue маягт хүсэгчийн
+   нэр, байгууллага, и-мэйлийг нээлттэй вэбэд тавьж, түлхүүрийг ч мөн нийтэд бичдэг
+   байв — хэн ч хуулж авах боломжтой. Одоо:
 
-   Гарах код:
-     0  лиценз гарлаа, бүртгэл бичигдлээ  — түлхээд хариуг нь бич
-     3  энэ хүсэлтэд аль хэдийн олгогдсон — юу ч бүү хий
-     4  маягт дутуу                       — бүртгэл хөдлөөгүй, гомдлыг нь бич
+     1. Хэрэглэгч plugin-ий ZLWLICENSE цонхонд мэдээллээ бөглөж «Хүсэлт илгээх» дарна —
+        хүсэлт хуулагдаж, license.html нээгдэнэ, тэнд заасан хаяг руу имэйлээр илгээнэ.
+     2. Эзэмшигч энэ скриптийг ажиллуулна. Лиценз гарч, хувийн бүртгэлд орж, хүсэгч
+        рүү илгээх имэйл таны имэйлийн программд бэлэн болж нээгдэнэ.
+
+   Нууц бүгд РЕПОГИЙН ГАДНА: 00-admin/secrets/zenith-lineworks/
+     private.pem  — гарын үсгийн хувийн түлхүүр (ECDSA P-256)
+     data.key     — битүүмжилсэн хүснэгтийн өгөгдлийн түлхүүр (32 байт, base64)
+     pepper.key   — өгөгдлийн түлхүүрийг компьютерт боох давс (32 байт, base64)
+     registry.json, issued/*.lic — олгосон лицензийн хувийн бүртгэл
+   Өөр газар байвал ZLW_SECRETS орчны хувьсагчаар заана.
+
+   Хэлбэр нь plugin-ий Licensing/Core/LicenseCheck.cs-тэй ЯГ ижил байх ёстой:
+     ZLW1.<b64url(payload JSON)>.<b64url(ECDSA P-256 SHA-256 IEEE-P1363 гарын үсэг)>
+     payload v2 = { v, no, to, org, ed, mid, from, till, dk }
+     dk = b64url(nonce12 | AES-256-GCM(kek, data.key) 32 | tag16),
+     kek = HMAC-SHA256(pepper, "ZLW kek v1|" + mid + "|" + no)
    ========================================================================== */
 
-import { readFileSync, writeFileSync, existsSync } from 'node:fs';
-import { createSign, createPrivateKey } from 'node:crypto';
+import { readFileSync, writeFileSync, existsSync, mkdirSync } from 'node:fs';
+import { createSign, createPrivateKey, createHmac, createCipheriv, randomBytes } from 'node:crypto';
+import { dirname, join, resolve } from 'node:path';
+import { fileURLToPath } from 'node:url';
+import { spawn } from 'node:child_process';
 
-const REGISTRY = 'registry.json';
-const REPLY = 'reply.md';
-const TRIAL_DAYS = 30;
-const KEY_VERSION = 'ZLW1';
-
-const SITE = 'https://nova-xo.github.io/lineworks';
-
-/* ------------------------------------------------------------------ туслах -- */
+const HERE = dirname(fileURLToPath(import.meta.url));
+const SECRETS = process.env.ZLW_SECRETS
+  ?? resolve(HERE, '..', '..', '..', '00-admin', 'secrets', 'zenith-lineworks');
 
 const b64url = (buf) =>
   Buffer.from(buf).toString('base64').replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
-
 const iso = (d) => d.toISOString().slice(0, 10);
 
-/* Хариуг файлд үлдээнэ. Эхний мөр нь далд тэмдэг — хариу бичигч түүгээр нь
-   «энэ хариу аль хэдийн бичигдсэн үү» гэдгийг мэднэ. */
-function reply(marker, label, lines) {
-  writeFileSync(REPLY, `<!-- zlw:${marker} -->\n${lines.join('\n')}\n`, 'utf8');
-  writeFileSync('reply-label.txt', label, 'utf8');
-}
-
-function parseForm(body) {
-  const fields = {};
-
-  /* Эхэнд \n нэмж байгаа нь: ЭХНИЙ гарчиг нь бичвэрийн яг эхэнд, өмнөө мөр
-     таслалтгүй ирдэг. Үүнгүйгээр эхний талбар — «Овог, нэр» — үргэлж хоосон
-     мэт харагдаж, зөв бөглөсөн маягт буцаагдана. */
-  const parts = `\n${String(body || '')}`.split(/\r?\n###\s+/);
-
-  for (const part of parts.slice(1)) {
-    const cut = part.indexOf('\n');
-    if (cut < 0) { continue; }
-    const label = part.slice(0, cut).trim();
-    const value = part.slice(cut + 1).trim();
-    fields[label] = value === '_No response_' ? '' : value;
+function args(argv) {
+  const out = {};
+  for (let i = 0; i < argv.length; i += 1) {
+    const a = argv[i];
+    if (a === '--no-mail') { out.noMail = true; continue; }
+    if (!a.startsWith('--')) { fail(`Танихгүй аргумент: ${a}`); }
+    out[a.slice(2)] = argv[i + 1];
+    i += 1;
   }
-  return fields;
+  return out;
 }
 
-/* Байгууллагын нэр нийтийн бүртгэлд орох тул markdown-ыг нь хуулахгүй.
-   Нэг мөр, зөв уртад тайрсан энгийн бичвэр л хэрэгтэй. */
-function plain(text, most = 80) {
-  return String(text || '')
-    .replace(/[`*_<>[\]|\r\n]+/g, ' ')
-    .replace(/\s+/g, ' ')
-    .trim()
-    .slice(0, most);
+function fail(message) {
+  console.error(`АЛДАА: ${message}`);
+  process.exit(2);
 }
 
-/* ---------------------------------------------------------------------- гол -- */
-
-const event = JSON.parse(readFileSync(process.env.GITHUB_EVENT_PATH, 'utf8'));
-const issue = event.issue;
-
-if (!issue) {
-  console.error('Энэ ажиллагаа issue-ээс эхлээгүй байна.');
-  process.exit(1);
+function oneLine(text, most) {
+  return String(text ?? '').replace(/[\r\n\t]+/g, ' ').replace(/\s+/g, ' ').trim().slice(0, most);
 }
 
-const registry = existsSync(REGISTRY) ? JSON.parse(readFileSync(REGISTRY, 'utf8')) : [];
-
-const already = registry.find((r) => r.issue === issue.number);
-if (already) {
-  console.log(`Хүсэлт #${issue.number} дээр ${already.no} аль хэдийн олгогдсон.`);
-  process.exit(3);
+function secret(name) {
+  const path = join(SECRETS, name);
+  if (!existsSync(path)) { fail(`${path} олдсонгүй.`); }
+  return readFileSync(path, 'utf8');
 }
 
-const form = parseForm(issue.body);
-const person = plain(form['Овог, нэр']);
-const org = plain(form['Байгууллага']);
-const email = plain(form['И-мэйл'], 120);
-const machineRaw = plain(form['Төхөөрөмжийн дугаар (заавал биш)'], 64)
-  .toUpperCase()
-  .replace(/[^A-F0-9]/g, '');
-const host = plain(form['Аль Civil 3D дээр ашиглах вэ'], 40);
+function key32(name) {
+  const bytes = Buffer.from(secret(name).trim(), 'base64');
+  if (bytes.length !== 32) { fail(`${name} 32 байт байх ёстой.`); }
+  return bytes;
+}
+
+/* --------------------------------------------------------------- оролт -- */
+
+const a = args(process.argv.slice(2));
+const person = oneLine(a.name, 80);
+const org = oneLine(a.org, 80);
+const email = oneLine(a.email, 120);
+const mid = String(a.mid ?? '').toUpperCase().replace(/[^0-9A-F]/g, '');
+const days = Number(a.days ?? 30);
+const edition = a.edition ?? 'trial';
 
 const problems = [];
-if (!person) { problems.push('Овог, нэр хоосон байна.'); }
-if (!org) { problems.push('Байгууллагын нэр хоосон байна.'); }
-if (!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(email)) { problems.push('И-мэйл хаяг зөв бичигдээгүй байна.'); }
-if (machineRaw && (machineRaw.length < 8 || machineRaw.length > 32)) {
-  problems.push('Төхөөрөмжийн дугаар нь 8–32 оронтой hex тэмдэгт байх ёстой.');
-}
+if (!person) { problems.push('--name хоосон.'); }
+if (!org) { problems.push('--org хоосон.'); }
+if (!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(email)) { problems.push('--email буруу.'); }
+if (mid.length !== 16) { problems.push('--mid нь 16 оронтой hex байх ёстой (ZLWLICENSE цонхонд харагдана).'); }
+if (!Number.isInteger(days) || days < 1 || days > 3660) { problems.push('--days 1–3660 бүхэл тоо.'); }
+if (!['trial', 'full'].includes(edition)) { problems.push('--edition нь trial эсвэл full.'); }
+if (problems.length) { fail(problems.join(' ')); }
 
-if (problems.length) {
-  reply('invalid', 'дутуу', [
-    'Маягтад засах зүйл байна:',
-    '',
-    ...problems.map((p) => `- ${p}`),
-    '',
-    'Хүсэлтээ засаад хадгалахад робот дахин шалгана.',
-  ]);
-  console.error(problems.join(' '));
-  process.exit(4);
-}
+/* -------------------------------------------------------------- дугаар -- */
 
-const pem = process.env.ZLW_LICENSE_KEY;
-if (!pem) {
-  reply('nokey', 'дутуу', [
-    'Лиценз олгогчийн түлхүүр тохируулагдаагүй байна. Хүсэлт хүлээгдэж байна —',
-    'эзэмшигч `ZLW_LICENSE_KEY` нууцыг тохируулмагц автоматаар олгогдоно.',
-  ]);
-  console.error('ZLW_LICENSE_KEY нууц байхгүй.');
-  process.exit(4);
-}
+const registryPath = join(SECRETS, 'registry.json');
+const registry = existsSync(registryPath) ? JSON.parse(readFileSync(registryPath, 'utf8')) : [];
 
-/* ------------------------------------------------------------------ дугаар -- */
-
+/* Огноо нь МОНГОЛЫН календараар: plugin нь компьютерийн өөрийн огноогоор (UTC+8)
+   шалгадаг. UTC-ээр бичвэл Улаанбаатарын өглөө 8-аас өмнө олгосон лиценз нэг
+   өдөр хоцорч, 1 хоногийн лиценз олгогдох агшиндаа дууссан байдаг байв
+   (Astra-гийн шүүлт, 2026-10-07). */
 const now = new Date();
-const year = now.getUTCFullYear();
+const ubDate = new Intl.DateTimeFormat('en-CA', {
+  timeZone: 'Asia/Ulaanbaatar', year: 'numeric', month: '2-digit', day: '2-digit',
+}).format(now);
+const today = new Date(`${ubDate}T00:00:00Z`);
+const year = today.getUTCFullYear();
 const used = registry
   .map((r) => /^ZLW-(\d{4})-(\d+)$/.exec(r.no || ''))
   .filter((m) => m && Number(m[1]) === year)
   .map((m) => Number(m[2]));
-const seq = (used.length ? Math.max(...used) : 0) + 1;
-const licenseNo = `ZLW-${year}-${String(seq).padStart(4, '0')}`;
+const licenseNo = `ZLW-${year}-${String((used.length ? Math.max(...used) : 0) + 1).padStart(4, '0')}`;
+const till = new Date(today.getTime() + (days - 1) * 86400000);
 
-const expires = new Date(now.getTime() + TRIAL_DAYS * 86400000);
+/* ----------------------------------------------------------- түлхүүр -- */
 
-/* Гарын үсэг зурагдах бичвэр. Талбарын дараалал ТОГТМОЛ байх ёстой — JSON-ыг
-   дахин цувуулж гарын үсэг шалгадаггүй, яг энэ байтуудыг л шалгана. */
-const payload = {
-  v: 1,
-  no: licenseNo,
-  to: person,
-  org,
-  ed: 'trial',
-  host,
-  mid: machineRaw,
-  from: iso(now),
-  till: iso(expires),
-};
+const kek = createHmac('sha256', key32('pepper.key')).update(`ZLW kek v1|${mid}|${licenseNo}`, 'utf8').digest();
+const nonce = randomBytes(12);
+const cipher = createCipheriv('aes-256-gcm', kek, nonce);
+const wrapped = Buffer.concat([cipher.update(key32('data.key')), cipher.final()]);
+const dk = b64url(Buffer.concat([nonce, wrapped, cipher.getAuthTag()]));
 
-const signing = `${KEY_VERSION}.${b64url(JSON.stringify(payload))}`;
+/* Талбарын дараалал ТОГТМОЛ — гарын үсэг яг эдгээр байтыг хамарна. */
+const payload = { v: 2, no: licenseNo, to: person, org, ed: edition, mid, from: iso(today), till: iso(till), dk };
+const signing = `ZLW1.${b64url(JSON.stringify(payload))}`;
 const signature = createSign('SHA256')
   .update(signing)
-  .sign({ key: createPrivateKey(pem), dsaEncoding: 'ieee-p1363' });
+  .sign({ key: createPrivateKey(secret('private.pem')), dsaEncoding: 'ieee-p1363' });
 
-const licenseFile = [
+const licenseText = [
   '-----BEGIN ZENITH LINEWORKS LICENSE-----',
   ...(`${signing}.${b64url(signature)}`.match(/.{1,64}/g) || []),
   '-----END ZENITH LINEWORKS LICENSE-----',
 ].join('\n');
 
-/* ------------------------------------------------------------------ бүртгэл -- */
+/* ------------------------------------------------------------ бүртгэл -- */
+
+mkdirSync(join(SECRETS, 'issued'), { recursive: true });
+const licPath = join(SECRETS, 'issued', `${licenseNo}.lic`);
+writeFileSync(licPath, `${licenseText}\n`, 'utf8');
 
 registry.push({
-  no: licenseNo,
-  org,
-  edition: 'trial',
-  issued: iso(now),
-  expires: iso(expires),
-  /* Бүрэн дугаарыг НИЙТЭД гаргахгүй. Эхний найм нь тухайн хүн өөрийнхөө
-     лицензийг таньж, хайж олоход хангалттай; бүтнээр нь тавих нь бусдын
-     төхөөрөмжийн хурууны хээг нийтэлж байгаа хэрэг. */
-  machine: machineRaw ? machineRaw.slice(0, 8) : '',
-  issue: issue.number,
-  status: 'active',
+  no: licenseNo, to: person, org, email, mid, edition, from: iso(today), till: iso(till), issued: now.toISOString(),
 });
+writeFileSync(registryPath, `${JSON.stringify(registry, null, 2)}\n`, 'utf8');
 
-writeFileSync(REGISTRY, `${JSON.stringify(registry, null, 2)}\n`, 'utf8');
+/* -------------------------------------------------------------- имэйл -- */
 
-reply(`issued ${licenseNo}`, 'олгосон', [
-  `**${licenseNo}** олголоо. Хугацаа: **${iso(now)} — ${iso(expires)}** (${TRIAL_DAYS} хоног).`,
+const subject = `Zenith LineWorks лиценз ${licenseNo}`;
+const body = [
+  `Сайн байна уу, ${person}.`,
   '',
-  'Доорх бичвэрийг бүтнээр нь хуулж, дараах зам дээр `zenith-lineworks.lic`',
-  'нэрээр хадгална уу:',
+  `Таны Zenith LineWorks лиценз ${licenseNo} бэлэн боллоо.`,
+  `Хугацаа: ${iso(today)} — ${iso(till)} (${days} хоног). Компьютер: ${mid.match(/.{4}/g).join('-')}.`,
   '',
-  '```',
-  '%APPDATA%\\ZenithLineWorks\\zenith-lineworks.lic',
-  '```',
+  'Civil 3D дээр ZLWLICENSE командыг ажиллуулж, доорх бичвэрийг «Лиценз оруулах» хэсэгт',
+  'бүтнээр нь хуулж тавиад «Оруулах» дарна уу.',
   '',
-  '```',
-  licenseFile,
-  '```',
+  licenseText,
   '',
-  machineRaw
-    ? `Энэ лиценз \`${machineRaw.slice(0, 8)}…\` төхөөрөмжид хязгаарлагдсан.`
-    : 'Энэ лиценз тодорхой төхөөрөмжид хязгаарлагдаагүй.',
+  'Энэ лиценз зөвхөн дээрх компьютер дээр ажиллана.',
   '',
-  '> **Анхаар:** 1.0.0 хувилбар лицензийг хараахан шалгадаггүй — програм',
-  '> лицензгүйгээр ч бүрэн ажиллана. Энэ түлхүүр нь шалгалт нэмэгдсэн',
-  '> хувилбарт хүчинтэй байна.',
-  '',
-  `Бүртгэлээс шалгах: ${SITE}/license.html`,
-]);
+  'Zenith Solar ХХК',
+].join('\n');
 
-console.log(`${licenseNo} бэлдэв (хүсэлт #${issue.number}). Түлхэгдсэний дараа хүчинтэй.`);
+console.log(`${licenseNo} олголоо → ${licPath}`);
+console.log(`Хүсэгч: ${person} · ${org} · ${email}`);
+console.log(`Хугацаа: ${iso(today)} — ${iso(till)}`);
+
+if (!a.noMail) {
+  const url = `mailto:${encodeURIComponent(email)}?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`;
+  spawn('rundll32.exe', ['url.dll,FileProtocolHandler', url], { detached: true, stdio: 'ignore' }).unref();
+  console.log('Имэйлийн программд илгээх захидал бэлэн болгож нээв. Шалгаад илгээнэ үү.');
+}
