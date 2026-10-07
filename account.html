@@ -1,0 +1,146 @@
+<!DOCTYPE html>
+<html lang="mn">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Миний хуудас — Zenith LineWorks</title>
+<meta name="description" content="Zenith LineWorks-ийн лиценз хүсэх, лицензээ харах, суулгагч татах.">
+<link rel="stylesheet" href="assets/site.css">
+<link rel="stylesheet" href="assets/portal.css">
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='7' fill='%23f0a500'/%3E%3Cpath d='M9 8h14l-9 9h9v7H9l9-9H9z' fill='%230a1626'/%3E%3C/svg%3E">
+</head>
+<body>
+
+<header class="top">
+  <div class="wrap">
+    <a class="brand" href="./">
+      <span class="mark">Z</span>
+      <span>Zenith LineWorks<small>Zenith Solar ХХК</small></span>
+    </a>
+    <nav class="top-nav">
+      <a href="./">Нүүр</a>
+      <a href="download.html">Татах</a>
+      <a href="license.html">Лиценз</a>
+      <span id="nav-account"><a class="here" href="account.html">Нэвтрэх</a></span>
+    </nav>
+  </div>
+</header>
+
+<main class="portal">
+  <div class="wrap">
+
+    <div id="not-configured" class="note warn" hidden>
+      <strong>Портал хараахан тохируулагдаагүй байна.</strong>
+      Лиценз хүсэх бол <a href="mailto:Superiornova068@gmail.com">Superiornova068@gmail.com</a> хаяг руу бичнэ үү.
+    </div>
+
+    <!-- Нэвтрээгүй -->
+    <section id="signed-out" class="panel" hidden>
+      <h2>Нэвтрэх</h2>
+      <p class="muted">
+        Лиценз хүсэх, лицензээ харах, суулгагч татахын тулд нэвтэрнэ үү. Нууц үг шаардахгүй:
+        имэйлдээ ирсэн холбоосыг дарахад нэвтэрнэ. Таны хүсэлт, мэдээлэл нийтэд харагдахгүй.
+      </p>
+      <form id="signin-form" class="form">
+        <label>Имэйл
+          <input id="signin-email" type="email" autocomplete="email" required>
+        </label>
+        <div class="row">
+          <button class="btn btn-sun" type="submit">Нэвтрэх холбоос илгээх</button>
+          <button class="btn btn-line" type="button" id="signin-google">Google-ээр нэвтрэх</button>
+        </div>
+        <p id="signin-msg" class="msg" role="status"></p>
+      </form>
+    </section>
+
+    <!-- Нэвтэрсэн -->
+    <div id="signed-in" hidden>
+      <h2>Миний хуудас</h2>
+      <p class="muted" id="who"></p>
+
+      <section class="panel">
+        <h3>Миний мэдээлэл</h3>
+        <form id="profile-form" class="form">
+          <label>Овог, нэр <input id="full-name" maxlength="80" required autocomplete="name"></label>
+          <label>Байгууллага <input id="organization" maxlength="80" required autocomplete="organization"></label>
+          <div class="row"><button class="btn btn-line" type="submit">Хадгалах</button></div>
+          <p id="profile-msg" class="msg" role="status"></p>
+        </form>
+      </section>
+
+      <section class="panel">
+        <h3>Лиценз хүсэх</h3>
+        <p class="muted">
+          Компьютерийн дугаарыг Civil 3D дээр <code>ZLWLICENSE</code> командаар харна. Тэр цонхны
+          «Хүсэлт илгээх…» товч энэ хуудсыг дугаартай нь нээдэг. Лиценз зөвхөн тэр компьютерт ажиллана.
+        </p>
+        <form id="request-form" class="form">
+          <label>Компьютерийн дугаар
+            <input id="machine" class="mono" maxlength="19" placeholder="3F2A-91C0-7B4E-D218" required autocomplete="off" spellcheck="false">
+          </label>
+          <label>Төрөл
+            <select id="kind">
+              <option value="new">Шинэ лиценз</option>
+              <option value="renewal">Одоо байгаа лицензээ сунгуулах</option>
+            </select>
+          </label>
+          <label id="renews-label" hidden>Сунгах лиценз
+            <select id="renews"></select>
+          </label>
+          <label>Тайлбар (заавал биш)
+            <textarea id="note" maxlength="500"></textarea>
+          </label>
+          <div class="row"><button class="btn btn-sun" type="submit" id="request-submit">Хүсэлт илгээх</button></div>
+          <p id="request-msg" class="msg" role="status"></p>
+        </form>
+      </section>
+
+      <section class="panel">
+        <h3>Миний лицензүүд</h3>
+        <p class="muted">
+          Лицензээ «Хуулах» эсвэл «.lic татах» товчоор аваад Civil 3D дээр <code>ZLWLICENSE</code> →
+          «Лиценз оруулах» → «Оруулах». Цуцлагдсан лиценз интернэтгүй ажилладаг тул хугацаа нь дуустал
+          ажилласаар байж болно.
+        </p>
+        <div class="table-scroll"><table>
+          <thead><tr><th>Дугаар</th><th>Компьютер</th><th>Төрөл</th><th>Хугацаа</th><th>Үлдсэн</th><th>Төлөв</th><th></th></tr></thead>
+          <tbody id="licenses"></tbody>
+        </table></div>
+        <p id="licenses-msg" class="msg" role="status"></p>
+      </section>
+
+      <section class="panel">
+        <h3>Миний хүсэлтүүд</h3>
+        <div class="table-scroll"><table>
+          <thead><tr><th>Огноо</th><th>Төрөл</th><th>Компьютер</th><th>Төлөв</th><th>Хариу</th></tr></thead>
+          <tbody id="requests"></tbody>
+        </table></div>
+      </section>
+
+      <section class="panel">
+        <h3>Суулгагч</h3>
+        <p class="muted">Хамгийн сүүлийн хувилбар. Холбоос 5 минут хүчинтэй.</p>
+        <div class="row"><button class="btn btn-line" id="installer">Суулгагч татах</button></div>
+        <p id="installer-msg" class="msg" role="status"></p>
+      </section>
+    </div>
+  </div>
+</main>
+
+<footer class="bottom">
+  <div class="wrap">
+    <div>
+      <strong>Zenith Solar ХХК</strong>
+      Zenith LineWorks · Бүх эрх хуулиар хамгаалагдсан
+    </div>
+    <div>
+      <a href="./">Нүүр</a> &nbsp;·&nbsp;
+      <a href="license.html">Лиценз</a> &nbsp;·&nbsp;
+      <a href="mailto:Superiornova068@gmail.com">Холбоо барих</a>
+    </div>
+  </div>
+</footer>
+
+<script type="module" src="assets/account.js"></script>
+</body>
+</html>

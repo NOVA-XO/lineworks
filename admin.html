@@ -1,0 +1,92 @@
+<!DOCTYPE html>
+<html lang="mn">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Удирдлага — Zenith LineWorks</title>
+<meta name="robots" content="noindex">
+<link rel="stylesheet" href="assets/site.css">
+<link rel="stylesheet" href="assets/portal.css">
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='7' fill='%23f0a500'/%3E%3Cpath d='M9 8h14l-9 9h9v7H9l9-9H9z' fill='%230a1626'/%3E%3C/svg%3E">
+</head>
+<body>
+
+<header class="top">
+  <div class="wrap">
+    <a class="brand" href="./">
+      <span class="mark">Z</span>
+      <span>Zenith LineWorks<small>Удирдлага</small></span>
+    </a>
+    <nav class="top-nav">
+      <a href="./">Нүүр</a>
+      <a class="here" href="admin.html">Удирдлага</a>
+      <span id="nav-account"><a href="account.html">Нэвтрэх</a></span>
+    </nav>
+  </div>
+</header>
+
+<main class="portal">
+  <div class="wrap">
+    <p id="gate" class="note">Шалгаж байна…</p>
+
+    <!-- Админ: TOTP -->
+    <section id="mfa" class="panel" hidden>
+      <h2>2 шаттай баталгаажуулалт</h2>
+      <p class="muted">
+        Админы үйлдэл (батлах, татгалзах, цуцлах, эрх өөрчлөх) зөвхөн баталгаажуулах аппын
+        (Google Authenticator, Microsoft Authenticator г.м.) кодоор баталгаажсан сессэд зөвшөөрөгдөнө.
+      </p>
+      <div id="mfa-enroll" hidden>
+        <p>Аппаараа доорх QR кодыг уншуулна уу:</p>
+        <img id="mfa-qr" class="qr" alt="TOTP QR код">
+        <p class="muted">QR уншигдахгүй бол нууц түлхүүр: <code id="mfa-secret" class="mono"></code></p>
+      </div>
+      <form id="mfa-form" class="form">
+        <label>6 оронтой код <input id="mfa-code" inputmode="numeric" pattern="[0-9]{6}" maxlength="6" autocomplete="one-time-code" required></label>
+        <div class="row"><button class="btn btn-sun" type="submit">Баталгаажуулах</button></div>
+        <p id="mfa-msg" class="msg" role="status"></p>
+      </form>
+    </section>
+
+    <div id="console" hidden>
+      <p class="muted" id="mode"></p>
+      <div class="tabs" role="tablist">
+        <button role="tab" data-tab="requests" aria-selected="true">Хүсэлтүүд</button>
+        <button role="tab" data-tab="users" aria-selected="false">Хэрэглэгчид</button>
+        <button role="tab" data-tab="licenses" aria-selected="false">Лицензүүд</button>
+      </div>
+
+      <section data-panel="requests">
+        <div class="table-scroll"><table>
+          <thead><tr><th>Огноо</th><th>Хэрэглэгч</th><th>Төрөл</th><th>Компьютер</th><th>Тайлбар</th><th>Төлөв</th><th></th></tr></thead>
+          <tbody id="requests"></tbody>
+        </table></div>
+        <p id="requests-msg" class="msg" role="status"></p>
+      </section>
+
+      <section data-panel="users" hidden>
+        <div class="table-scroll"><table>
+          <thead><tr><th>Имэйл</th><th>Нэр</th><th>Байгууллага</th><th>Бүртгүүлсэн</th><th>Эрх</th></tr></thead>
+          <tbody id="users"></tbody>
+        </table></div>
+        <p id="users-msg" class="msg" role="status"></p>
+      </section>
+
+      <section data-panel="licenses" hidden>
+        <p class="note warn">
+          Цуцалсан лиценз интернэтгүй шалгагддаг тул хугацаа нь дуустал ажилласаар байна. Цуцлалт
+          нь сунгалтыг хааж, бүртгэлд тэмдэглэнэ.
+        </p>
+        <div class="table-scroll"><table>
+          <thead><tr><th>Дугаар</th><th>Эзэмшигч</th><th>Компьютер</th><th>Төрөл</th><th>Хугацаа</th><th>Төлөв</th><th></th></tr></thead>
+          <tbody id="licenses"></tbody>
+        </table></div>
+        <p id="licenses-msg" class="msg" role="status"></p>
+      </section>
+    </div>
+  </div>
+</main>
+
+<script type="module" src="assets/admin.js"></script>
+</body>
+</html>

@@ -16,37 +16,85 @@ repository-д хадгалагддаг. **Нууц нэг ч байхгүй:** �
 |---|---|
 | `index.html`, `download.html`, `license.html` | Сайт. Статик HTML, build алхамгүй. |
 | `assets/site.css` | Ганц хэв маягийн файл. Framework, CDN ашиглахгүй. |
-| `tools/issue-license.mjs` | Лиценз олгогч. **Эзэмшигчийн компьютер дээр** ажиллана. |
+| `account.html`, `admin.html`, `assets/portal*.js` | Нэвтрэх портал (Supabase). |
+| `supabase/` | Сан, эрх, лиценз гаргах Edge Function. |
+| `tools/issue-license.mjs` | Нөөц олгогч: порталгүйгээр, **эзэмшигчийн компьютер дээр** лиценз гаргана. |
 | `tools/new-keypair.mjs` | Гарын үсгийн түлхүүрийн хос үүсгэгч. Нэг л удаа ажиллана. |
 | `tools/verify-license.mjs` | Лицензийн гарын үсгийг шалгагч. |
 
 ---
 
-## Лиценз хэрхэн олгогддог вэ (2026-10-07-ноос)
+## Порталаар лиценз олгох (2026-10-07-ноос)
 
 ```
-Хэрэглэгч: Civil 3D → ZLWLICENSE → нэр, байгууллага, имэйл → «Хүсэлт илгээх»
-        │  хүсэлт clipboard-д хуулагдаж, license.html нээгдэнэ
+Хэрэглэгч: Civil 3D → ZLWLICENSE → «Хүсэлт илгээх…»
+        │  account.html?mid=XXXX-XXXX-XXXX-XXXX нээгдэнэ
         ▼
-  Имэйлээр эзэмшигч рүү (нийтэд юу ч харагдахгүй)
-        │
+account.html: имэйлийн холбоос (эсвэл Google)-оор нэвтэрнэ → нэр, байгууллага → хүсэлт
         ▼
-Эзэмшигч: node tools/issue-license.mjs --name … --org … --email … --mid XXXX-XXXX-XXXX-XXXX
-        │  лиценз гарч, хувийн бүртгэлд орж, хүсэгч рүү илгээх имэйл бэлэн нээгдэнэ
+admin.html (админ, TOTP 2 шаттай): «Батлах» → Edge Function approve-request
+        │  лицензэд гарын үсэг зурж, licenses хүснэгтэд хадгална
         ▼
-Хэрэглэгч: имэйлээр ирсэн түлхүүрийг ZLWLICENSE → «Лиценз оруулах» → «Оруулах»
+account.html: «Миний лицензүүд» → «Хуулах» / «.lic татах» → ZLWLICENSE → «Оруулах»
 ```
 
-**Өмнөх GitHub Issue робот ХАСАГДСАН.** Нийтийн маягт хүсэгчийн нэр, байгууллага,
-имэйлийг нээлттэй вэбэд гаргаж, түлхүүрийг ч нийтэд бичдэг байсан.
+| Хэсэг | Хаана |
+|---|---|
+| Хуудас | `account.html`, `admin.html`, `assets/portal*.js` (GitHub Pages) |
+| Сан ба эрх | `supabase/migrations/*_portal.sql` — `profiles`, `requests`, `licenses`, мөрийн эрх (RLS) |
+| Лиценз гаргагч | `supabase/functions/approve-request/` + `_shared/license-core.js` (WebCrypto) |
+| Суулгагч | Supabase Storage-ийн хувийн `installers` сан. Нэвтэрсэн хэрэглэгчид 5 минутын холбоос үүсгэнэ |
 
-**Програм ямар ч сервер рүү холбогдохгүй**, лицензийг офлайнаар шалгана:
+**Эрх.** Эрхийг хуудсан дээр биш, САН дээр шийддэг:
 
-- **гарын үсэг:** ECDSA P-256 + SHA-256, IEEE-P1363;
-- **компьютер:** лиценз **заавал** нэг компьютерийн дугаарт олгогдоно. Дугаар нь Windows-ийн MachineGuid-ийн SHA-256 хэш бөгөөд 16 hex тэмдэгтээс бүрдэнэ;
-- **хугацаа** болон **цаг буцаасан эсэх**.
+- `user`:
+  - өөрийн нэр, байгууллагыг засна;
+  - хүсэлт гаргана (хүлээгдэж буй хүсэлт 3-аас ихгүй);
+  - өөрийн лицензээ харна.
+- `viewer`: бүгдийг харна, юу ч бичихгүй.
+- `admin`:
+  - хүсэлт батлах, татгалзах;
+  - лиценз цуцлах;
+  - бусдын эрхийг өөрчлөх.
 
-### Түлхүүрийн хэлбэр (v2)
+  Эдгээрийг **зөвхөн TOTP-оор баталгаажсан сессэд (aal2)** хийнэ. Өөрийнхөө эрхийг өөрчилж чадахгүй.
+
+**Анхаар:** лицензийг сервер дээр гарын үсэг зурж олгодог тул хувийн түлхүүр Supabase-ийн
+нууцад (`ZLW_PRIVATE_PEM`) хадгалагдана. Эзэмшигч энэ эрсдэлийг мэдсээр байж сонгосон.
+Тиймээс админ данс TOTP-гүйгээр юу ч батлахгүй. Supabase дансандаа 2 шаттай нэвтрэлтийг
+**заавал** асаа.
+
+**Цуцалсан лиценз** хугацаа нь дуустал офлайнаар ажилласаар байна: plugin интернэтэд
+холбогддоггүй. Тиймээс лицензийг богино хугацаатай олгож, сунгалтаар үргэлжлүүлнэ.
+
+### Supabase-ийг нэг удаа тохируулах
+
+1. supabase.com дээр төсөл үүсгэнэ (бүс: Singapore эсвэл Tokyo). **Project ref** болон
+   **anon key**-г `assets/portal-config.js`-д бичнэ. anon key нь нууц биш.
+2. Холбоод сангаа үүсгэнэ:
+   ```bash
+   npx supabase login
+   npx supabase link --project-ref <ref>
+   npx supabase db push
+   ```
+3. Нууцуудыг `00-admin/secrets/zenith-lineworks/`-ээс уншиж тохируулна. Утгыг нь дэлгэцэнд
+   хэвлэхгүй:
+   ```bash
+   S=../../00-admin/secrets/zenith-lineworks
+   npx supabase secrets set ZLW_PRIVATE_PEM="$(cat $S/private.pem)" ZLW_DATA_KEY="$(cat $S/data.key)" ZLW_PEPPER="$(cat $S/pepper.key)"
+   npx supabase functions deploy approve-request
+   ```
+4. Dashboard → Authentication → URL Configuration: Site URL болон Redirect URL-д
+   `https://nova-xo.github.io/lineworks/account.html`, `…/admin.html`-ыг нэмнэ.
+   Google-ээр нэвтрүүлэх бол Providers → Google-д OAuth client-ээ оруулна.
+5. Supabase-ийн анхдагч имэйл цагт хэдхэн захидал л илгээдэг. Бодит хэрэглээнд
+   Authentication → SMTP-д өөрийн имэйлийн серверийг тохируулна.
+6. **Анхны админ.** Эхлээд `account.html`-ээр нэвтэрч бүртгэл үүсгэнэ. Дараа нь SQL editor-т:
+   `update profiles set role = 'admin' where email = '<имэйл>';`. `admin.html` анх нээхэд
+   TOTP бүртгүүлнэ.
+7. Суулгагч: Storage → `installers` → `latest/ZenithLineWorksSetup.exe`.
+
+## Түлхүүрийн хэлбэр (v2)
 
 ```
 ZLW1.<b64url(payload JSON)>.<b64url(signature)>

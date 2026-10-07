@@ -108,11 +108,13 @@ const ubDate = new Intl.DateTimeFormat('en-CA', {
 }).format(now);
 const today = new Date(`${ubDate}T00:00:00Z`);
 const year = today.getUTCFullYear();
+/* Портал ZLW-<он>-<дугаар>-ыг өөрөө олгодог. Энэ нөөц хэрэгсэл L угтвартай
+   (ZLW-2026-L0001) тул хоёулаа хэзээ ч ижил дугаар гаргахгүй. */
 const used = registry
-  .map((r) => /^ZLW-(\d{4})-(\d+)$/.exec(r.no || ''))
+  .map((r) => /^ZLW-(\d{4})-L(\d+)$/.exec(r.no || ''))
   .filter((m) => m && Number(m[1]) === year)
   .map((m) => Number(m[2]));
-const licenseNo = `ZLW-${year}-${String((used.length ? Math.max(...used) : 0) + 1).padStart(4, '0')}`;
+const licenseNo = `ZLW-${year}-L${String((used.length ? Math.max(...used) : 0) + 1).padStart(4, '0')}`;
 const till = new Date(today.getTime() + (days - 1) * 86400000);
 
 /* ----------------------------------------------------------- түлхүүр -- */
