@@ -72,7 +72,7 @@ account.html: «Миний лицензүүд» → «Хуулах» / «.lic т
 - **Supabase төсөл:** `yfusttksvhdssjizxebc`, Tokyo бүсэд (`ap-northeast-1`).
 - **Migration:** SQL Editor-оор гараар ажиллуулсан. CLI-ээр `db push` хийхээс өмнө `npx supabase migration repair --status applied 20261007000000` ажиллуулна.
 - **Нууц ба функц:** `ZLW_PRIVATE_PEM`, `ZLW_DATA_KEY`, `ZLW_PEPPER` гурван нууц хадгалагдсан. `approve-request` функц байршсан.
-- **Суулгагч:** `installers/latest/ZenithLineWorksSetup.exe` = `1.8.0+4e00f14`.
+- **Суулгагч:** `installers/latest/ZenithLineWorksSetup.exe` = `1.8.0+574e8b2` (WPF цонхтой).
 - **Анхны админ:** `superiornova068@gmail.com`.
 - **Лицензийн төрөл** (`20261007010000_editions.sql`, CLI `db query --linked`-ээр ажиллуулсан):
   - `trial` — админ хоногийг сонгоно;
