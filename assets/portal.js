@@ -64,22 +64,73 @@ export function explain(error) {
   return text;
 }
 
-/** Толгойн цэсэнд нэвтэрсэн хэрэглэгч ба «Гарах»-ыг харуулна. */
+/** Толгойн цэсэнд нэвтэрсэн хэрэглэгч ба «Гарах»-ыг харуулна (дүрс HTML-д тогтмол, зөвхөн бичиг солигдоно). */
 export async function wireNav() {
   const slot = $('#nav-account');
-  if (!slot || !supabase) { return null; }
+  if (!slot || !supabase) return null;
+
+  const link = $('.nav-user', slot);
+  const label = link && $('.nav-user-label', link);
+
+  // HTML бүтэц алдаатай байсан ч caller-д session-ийг буцаана.
   const { data: { session } } = await supabase.auth.getSession();
-  slot.replaceChildren();
-  const here = /account\.html$/.test(location.pathname) ? 'here' : null;
-  if (session) {
-    slot.append(
-      el('a', { href: 'account.html', class: here, title: session.user.email ?? '' }, 'Миний хуудас'),
-      ' ',
-      el('a', { href: '#', onclick: async (e) => { e.preventDefault(); await supabase.auth.signOut(); location.href = 'account.html'; } }, 'Гарах'),
-    );
-  } else {
-    slot.append(el('a', { href: 'account.html', class: here }, 'Нэвтрэх'));
+  if (!link || !label) return session;
+
+  slot.dataset.sessionOwner = 'portal';
+
+  const text = session ? 'Миний хуудас' : 'Нэвтрэх';
+  const email = typeof session?.user?.email === 'string'
+    ? session.user.email
+    : '';
+
+  label.textContent = text;
+  link.setAttribute('aria-label', text);
+  link.setAttribute('title', email ? `${text} — ${email}` : text);
+
+  // .here, aria-current болон SVG-г HTML-ийн хэвээр хадгална.
+  const existingSignout = $('.nav-signout', slot);
+
+  if (!session) {
+    existingSignout?.remove();
+    return session;
   }
+
+  // wireNav() дахин дуудагдахад холбоос/listener давхардахгүй.
+  if (!existingSignout) {
+    let signingOut = false;
+
+    const signout = el(
+      'a',
+      {
+        class: 'nav-signout',
+        href: 'account.html',
+        onclick: async (event) => {
+          event.preventDefault();
+          if (signingOut) return;
+
+          signingOut = true;
+          signout.setAttribute('aria-disabled', 'true');
+          signout.setAttribute('aria-busy', 'true');
+
+          try {
+            const { error } = await supabase.auth.signOut();
+            if (error) throw error;
+
+            location.assign('account.html');
+          } catch {
+            signingOut = false;
+            signout.removeAttribute('aria-disabled');
+            signout.removeAttribute('aria-busy');
+            window.alert('Гарч чадсангүй. Дахин оролдоно уу.');
+          }
+        },
+      },
+      'Гарах',
+    );
+
+    link.after(signout);
+  }
+
   return session;
 }
 

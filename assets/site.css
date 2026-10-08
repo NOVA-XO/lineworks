@@ -83,12 +83,102 @@ header.top .wrap { display: flex; align-items: center; gap: 28px; height: 62px; 
   letter-spacing: .06em; text-transform: uppercase;
 }
 
-nav.top-nav { margin-left: auto; display: flex; gap: 4px; align-items: center; }
-/* «Нэвтрэх / Миний хуудас» нь span дотор (nav-session.js, wireNav сольдог) — бусад холбоостой нэг эгнээнд. */
-nav.top-nav #nav-account { display: flex; gap: 4px; align-items: center; }
-nav.top-nav a { color: #c3d3e4; padding: 7px 14px; border-radius: 7px; font-size: .93rem; white-space: nowrap; }
-nav.top-nav a:hover { background: rgba(255, 255, 255, .09); color: #fff; text-decoration: none; }
-nav.top-nav a.here { background: rgba(240, 165, 0, .16); color: #ffca5c; }
+/* Толгой light/dark сэдэвт хоёуланд нь navy байна. */
+header.top {
+  background: var(--navy);
+}
+
+header.top .wrap {
+  min-height: 62px;
+  height: auto;
+  flex-wrap: wrap;
+  row-gap: 4px;
+}
+
+nav.top-nav {
+  margin-left: auto;
+  display: flex;
+  flex-wrap: nowrap;
+  align-items: center;
+  gap: 4px;
+}
+
+nav.top-nav #nav-account {
+  display: inline-flex;
+  flex: none;
+  align-items: center;
+  gap: 4px;
+  white-space: nowrap;
+}
+
+/* Үндсэн цэс ба дансны хэсгийн хоорондох заагч. */
+nav.top-nav #nav-account::before {
+  content: "";
+  display: block;
+  flex: 0 0 1px;
+  width: 1px;
+  height: 20px;
+  margin-inline: 8px;
+  background: rgba(255, 255, 255, .18);
+}
+
+nav.top-nav a {
+  display: inline-flex;
+  flex: none;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  height: 38px;
+  padding: 0 14px;
+  border-radius: 7px;
+  color: #c3d3e4;
+  font-size: .93rem;
+  font-weight: 400;
+  line-height: 1;
+  white-space: nowrap;
+  text-decoration: none;
+}
+
+nav.top-nav a:hover {
+  background: rgba(255, 255, 255, .09);
+  color: #fff;
+  text-decoration: none;
+}
+
+nav.top-nav a.here {
+  background: rgba(240, 165, 0, .16);
+  color: #ffca5c;
+}
+
+nav.top-nav a:focus-visible {
+  outline: 2px solid var(--sun);
+  outline-offset: 2px;
+}
+
+nav.top-nav .nav-user svg {
+  display: block;
+  flex: 0 0 20px;
+  width: 20px;
+  height: 20px;
+}
+
+nav.top-nav a.nav-signout {
+  padding-inline: 8px;
+  color: #93a9c0;
+  font-size: .8rem;
+}
+
+nav.top-nav a.nav-signout:hover {
+  background: transparent;
+  color: #fff;
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+
+nav.top-nav a.nav-signout[aria-disabled="true"] {
+  opacity: .55;
+  cursor: wait;
+}
 
 /* --------------------------------------------------------------------- hero -- */
 
@@ -249,17 +339,80 @@ footer.bottom strong { color: #fff; display: block; font-weight: 650; }
   h1 { font-size: 2rem; }
   .hero { padding: 52px 0 58px; }
   section { padding: 48px 0; }
-  header.top .wrap { gap: 12px; }
-  nav.top-nav a { padding: 7px 10px; font-size: .87rem; }
+
+  header.top .wrap { column-gap: 12px; }
+
   .brand small { display: none; }
-  .result dl { grid-template-columns: 1fr; gap: 2px 0; }
+
+  nav.top-nav { gap: 2px; }
+
+  nav.top-nav a {
+    padding-inline: 8px;
+    font-size: .87rem;
+  }
+
+  nav.top-nav #nav-account { gap: 2px; }
+
+  nav.top-nav #nav-account::before {
+    margin-inline: 5px;
+  }
+
+  /* Логоны хажууд байрлах 561–720px өргөнд ч багтаана. */
+  nav.top-nav .nav-user-label {
+    display: none;
+  }
+
+  nav.top-nav a.nav-user {
+    width: 38px;
+    padding: 0;
+    gap: 0;
+  }
+
+  nav.top-nav a.nav-signout {
+    padding-inline: 6px;
+    font-size: .8rem;
+  }
+
+  .result dl {
+    grid-template-columns: 1fr;
+    gap: 2px 0;
+  }
+
   .result dd { margin-bottom: 10px; }
 }
 
-/* Утсанд дөрвөн холбоос логоны хажууд багтахгүй («Миний хуудас» зүсэгддэг байв,
-   2026-10-08): цэс логоны доор өөрийн мөрөнд гарна. */
 @media (max-width: 560px) {
-  header.top .wrap { height: auto; flex-wrap: wrap; row-gap: 4px; padding-top: 8px; padding-bottom: 6px; }
-  nav.top-nav { width: 100%; margin-left: -10px; }
-  nav.top-nav a { padding: 7px 10px; }
+  header.top .wrap {
+    height: auto;
+    flex-wrap: wrap;
+    row-gap: 4px;
+    padding-top: 8px;
+    padding-bottom: 6px;
+  }
+
+  /* portal.css-ийн account-specific wrap дүрмийг давна. */
+  header.top nav.top-nav,
+  body:has(#profile-panel) header.top nav.top-nav {
+    flex: 0 0 100%;
+    width: 100%;
+    min-width: 0;
+    margin-left: 0;
+    flex-wrap: nowrap;
+    justify-content: flex-start;
+    gap: 2px;
+  }
+
+  nav.top-nav a {
+    height: 38px;
+    padding-inline: 8px;
+  }
+
+  nav.top-nav a.nav-user {
+    width: 38px;
+    padding: 0;
+  }
+
+  nav.top-nav a.nav-signout {
+    padding-inline: 6px;
+  }
 }

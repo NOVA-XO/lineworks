@@ -1,24 +1,47 @@
-/* Толгойн цэсний «Нэвтрэх» — нэвтэрсэн бол «Миний хуудас» болгоно.
-
-   Нүүр, Татах, Лиценз хуудас Supabase-ийн санг ачаалдаггүй (хурд, CDN-гүй) тул
-   цэс нь үргэлж «Нэвтрэх» гэж харуулдаг байв (эзэн, 2026-10-08). Энэ скрипт сүлжээнд
-   гарахгүй: supabase-js-ийн хадгалсан сессийг (localStorage) л уншина. Сесс хүчинтэй
-   эсэхийг шийддэг нь энэ биш — account.html нээгдэхэд сан өөрөө шалгана; энэ нь зөвхөн
-   цэсний бичиг. account/admin хуудсанд portal.js-ийн wireNav() дараа нь дарж бичнэ. */
+/* Толгойн данс холбоос — бүтэц ба хэв маяг Astra (2026-10-08), эзний жишээ зургаар. */
+/*
+ * Нийтийн хуудсанд хадгалсан session-оос цэсний нэрийг шинэчилнэ.
+ * Энэ нь эрхийн шалгалт биш; portal хуудсанд wireNav() баталгаажуулна.
+ * SVG болон холбоосыг дахин үүсгэхгүй.
+ */
 (() => {
   const KEY = 'sb-yfusttksvhdssjizxebc-auth-token';
+
   const slot = document.getElementById('nav-account');
-  if (!slot) { return; }
-  let session = null;
-  try {
-    session = JSON.parse(localStorage.getItem(KEY) || 'null');
-  } catch {
-    session = null;
+  const link = slot?.querySelector('.nav-user');
+  const label = link?.querySelector('.nav-user-label');
+
+  if (!slot || !link || !label) return;
+
+  function update() {
+    // Portal session-оо уншсан бол түүний төлөвийг давж бичихгүй.
+    if (slot.dataset.sessionOwner === 'portal') return;
+
+    let session = null;
+
+    try {
+      session = JSON.parse(localStorage.getItem(KEY) || 'null');
+    } catch {
+      // Storage хаалттай эсвэл JSON эвдэрсэн бол Нэвтрэх гэж үзүүлнэ.
+    }
+
+    const signedIn = Boolean(session?.refresh_token && session?.user);
+    const text = signedIn ? 'Миний хуудас' : 'Нэвтрэх';
+    const email = signedIn && typeof session.user.email === 'string'
+      ? session.user.email
+      : '';
+
+    label.textContent = text;
+    link.setAttribute('aria-label', text);
+    link.setAttribute('title', email ? `${text} — ${email}` : text);
   }
-  if (!session || !session.refresh_token || !session.user) { return; }
-  const link = slot.querySelector('a') || document.createElement('a');
-  link.href = 'account.html';
-  link.textContent = 'Миний хуудас';
-  if (session.user.email) { link.title = session.user.email; }
-  if (!link.parentNode) { slot.append(link); }
+
+  update();
+
+  window.addEventListener('storage', (event) => {
+    if (event.key === KEY || event.key === null) update();
+  });
+
+  // Back/Forward cache-аас буцаж ирэхэд шинэчилнэ.
+  window.addEventListener('pageshow', update);
 })();
