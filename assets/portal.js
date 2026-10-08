@@ -72,7 +72,7 @@ export async function wireNav() {
   slot.replaceChildren();
   if (session) {
     slot.append(
-      el('a', { href: 'account.html' }, session.user.email ?? 'Миний хуудас'),
+      el('a', { href: 'account.html', title: session.user.email ?? '' }, 'Миний хуудас'),
       ' ',
       el('a', { href: '#', onclick: async (e) => { e.preventDefault(); await supabase.auth.signOut(); location.href = 'account.html'; } }, 'Гарах'),
     );
