@@ -3,10 +3,16 @@ import {
   machineDigits, formatMachine, date, daysLeft, statusPill, KIND_MN, EDITION_MN, PERPETUAL_UNTIL,
 } from './portal.js';
 import { INSTALLER_PATH } from './portal-config.js';
+import { profileModel } from './profile-model.js';
+import { renderProfile } from './profile-view.js';
 
 const here = `${location.origin}${location.pathname}`;
 const midFromUrl = new URLSearchParams(location.search).get('mid');
 let myLicences = [];
+let myProfile = null;
+let myRequests = [];
+
+const ubToday = () => new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Ulaanbaatar' }).format(new Date());
 
 async function start() {
   if (!configured) { show($('#not-configured'), true); return; }
@@ -30,12 +36,16 @@ async function render() {
   const session = await wireNav();
   show($('#signed-out'), !session);
   show($('#signed-in'), !!session);
-  if (!session) { return; }
+  if (!session) {
+    myProfile = null; myLicences = []; myRequests = [];
+    return;
+  }
 
   $('#who').textContent = `Нэвтэрсэн: ${session.user.email ?? ''}`;
   const { data: profile, error } = await supabase.from('profiles')
-    .select('full_name, organization, role').eq('id', session.user.id).single();
+    .select('full_name, organization, role, created_at').eq('id', session.user.id).single();
   if (error) { say($('#profile-msg'), explain(error), 'err'); return; }
+  myProfile = { ...profile, email: session.user.email ?? '' };
   $('#full-name').value = profile.full_name;
   $('#organization').value = profile.organization;
   if (profile.role !== 'user') {
@@ -43,6 +53,30 @@ async function render() {
   }
   updateRequestGate();
   await Promise.all([loadLicences(session.user.id), loadRequests(session.user.id)]);
+  showProfile();
+}
+
+/* Профайлыг лиценз ба хүсэлт хоёулаа ачаалагдсаны дараа, мөн тэдгээр өөрчлөгдөх бүрд. */
+function showProfile() {
+  if (!myProfile) { return; }
+  renderProfile(profileModel({
+    profile: myProfile,
+    email: myProfile.email,
+    licences: myLicences,
+    requests: myRequests,
+    today: ubToday(),
+    currentMachine: midFromUrl ?? '',
+  }), { openRequest });
+}
+
+function openRequest(machineId, renewalLicenceId) {
+  const renewal = renewalLicenceId != null;
+  if (machineId) { $('#machine').value = formatMachine(machineId); }
+  $('#kind').value = renewal ? 'renewal' : 'new';
+  $('#renews').value = renewal ? String(renewalLicenceId) : '';
+  show($('#renews-label'), renewal);
+  $('#request-form').scrollIntoView({ behavior: 'auto', block: 'start' });
+  (renewal ? $('#renews') : $('#machine')).focus({ preventScroll: true });
 }
 
 function updateRequestGate() {
@@ -66,7 +100,14 @@ async function saveProfile(event) {
     .update({ full_name: $('#full-name').value.trim(), organization: $('#organization').value.trim() })
     .eq('id', user.id);
   say($('#profile-msg'), error ? explain(error) : 'Хадгаллаа.', error ? 'err' : 'ok');
-  if (!error) { say($('#request-msg'), ''); updateRequestGate(); }
+  if (!error) {
+    say($('#request-msg'), '');
+    updateRequestGate();
+    if (myProfile) {
+      myProfile = { ...myProfile, full_name: $('#full-name').value.trim(), organization: $('#organization').value.trim() };
+      showProfile();
+    }
+  }
 }
 
 async function sendRequest(event) {
@@ -89,6 +130,7 @@ async function sendRequest(event) {
   $('#note').value = '';
   const { data: { user } } = await supabase.auth.getUser();
   await loadRequests(user.id);
+  showProfile();
 }
 
 async function loadLicences(userId) {
@@ -122,12 +164,13 @@ async function loadLicences(userId) {
 async function loadRequests(userId) {
   const { data, error } = await supabase.from('requests')
     .select('created_at, kind, machine_id, status, decision_note')
-    .eq('user_id', userId).order('created_at', { ascending: false }).limit(50);
+    .eq('user_id', userId).order('created_at', { ascending: false });
   const body = $('#requests');
   body.replaceChildren();
   if (error) { body.append(el('tr', {}, el('td', { colspan: 5 }, explain(error)))); return; }
+  myRequests = data;
   if (!data.length) { body.append(el('tr', {}, el('td', { colspan: 5, class: 'muted' }, 'Хүсэлт алга.'))); }
-  for (const r of data) {
+  for (const r of data.slice(0, 50)) {
     body.append(el('tr', {},
       el('td', {}, date(r.created_at)),
       el('td', {}, KIND_MN[r.kind] ?? r.kind),

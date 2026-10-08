@@ -58,14 +58,69 @@
       <h2>Миний хуудас</h2>
       <p class="muted" id="who"></p>
 
-      <section class="panel">
-        <h3>Миний мэдээлэл</h3>
-        <form id="profile-form" class="form">
-          <label>Овог, нэр <input id="full-name" maxlength="80" required autocomplete="name"></label>
-          <label>Байгууллага <input id="organization" maxlength="80" required autocomplete="organization"></label>
-          <div class="row"><button class="btn btn-line" type="submit">Хадгалах</button></div>
-          <p id="profile-msg" class="msg" role="status"></p>
-        </form>
+      <section id="profile-panel" class="panel profile" aria-labelledby="profile-title">
+        <h3 id="profile-title">Миний профайл</h3>
+
+        <div class="profile-head">
+          <div id="profile-avatar" class="profile-avatar" aria-hidden="true">?</div>
+
+          <div class="profile-identity">
+            <h4 id="profile-name">Мэдээлэл ачаалж байна…</h4>
+            <p id="profile-organization"></p>
+            <p id="profile-email"></p>
+            <div class="profile-meta">
+              <span id="profile-role" class="status"></span>
+              <span id="profile-since"></span>
+            </div>
+          </div>
+
+          <button
+            id="profile-edit"
+            class="btn btn-line"
+            type="button"
+            aria-expanded="false"
+            aria-controls="profile-editor"
+            disabled
+          >Засах</button>
+        </div>
+
+        <p id="profile-required" class="note warn" hidden>
+          Лиценз хүсэхийн өмнө бөглөнө үү. Нэр, байгууллагаа оруулаад хадгална уу.
+        </p>
+
+        <div id="profile-editor" class="profile-editor" hidden>
+          <form id="profile-form" class="form">
+            <label for="full-name">Овог, нэр
+              <input id="full-name" maxlength="80" required autocomplete="name">
+            </label>
+            <label for="organization">Байгууллага
+              <input id="organization" maxlength="80" required autocomplete="organization">
+            </label>
+            <div class="row">
+              <button class="btn btn-line" type="submit">Хадгалах</button>
+            </div>
+          </form>
+        </div>
+
+        <!-- Форм хаалттай байсан ч хадгалалт/ачаалалтын алдаа харагдана. -->
+        <p id="profile-msg" class="msg" role="status" aria-atomic="true"></p>
+
+        <div id="profile-primary"></div>
+
+        <dl id="profile-stats" class="profile-stats" aria-label="Тоон хураангуй"></dl>
+
+        <div class="profile-machines">
+          <h4 id="profile-machines-title">Бүртгэлтэй компьютерүүд</h4>
+          <p class="profile-muted">
+            Лиценз эсвэл хүсэлтэд бүртгэгдсэн компьютерүүд.
+            Сүүлийн бүртгэлийн огноо нь онлайн байсан хугацааг илэрхийлэхгүй.
+          </p>
+          <ul
+            id="profile-machine-list"
+            class="profile-machine-list"
+            aria-labelledby="profile-machines-title"
+          ></ul>
+        </div>
       </section>
 
       <section class="panel">
