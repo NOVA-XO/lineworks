@@ -70,14 +70,15 @@ export async function wireNav() {
   if (!slot || !supabase) { return null; }
   const { data: { session } } = await supabase.auth.getSession();
   slot.replaceChildren();
+  const here = /account\.html$/.test(location.pathname) ? 'here' : null;
   if (session) {
     slot.append(
-      el('a', { href: 'account.html', title: session.user.email ?? '' }, 'Миний хуудас'),
+      el('a', { href: 'account.html', class: here, title: session.user.email ?? '' }, 'Миний хуудас'),
       ' ',
       el('a', { href: '#', onclick: async (e) => { e.preventDefault(); await supabase.auth.signOut(); location.href = 'account.html'; } }, 'Гарах'),
     );
   } else {
-    slot.append(el('a', { href: 'account.html' }, 'Нэвтрэх'));
+    slot.append(el('a', { href: 'account.html', class: here }, 'Нэвтрэх'));
   }
   return session;
 }

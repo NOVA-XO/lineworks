@@ -83,8 +83,10 @@ header.top .wrap { display: flex; align-items: center; gap: 28px; height: 62px; 
   letter-spacing: .06em; text-transform: uppercase;
 }
 
-nav.top-nav { margin-left: auto; display: flex; gap: 4px; }
-nav.top-nav a { color: #c3d3e4; padding: 7px 14px; border-radius: 7px; font-size: .93rem; }
+nav.top-nav { margin-left: auto; display: flex; gap: 4px; align-items: center; }
+/* «Нэвтрэх / Миний хуудас» нь span дотор (nav-session.js, wireNav сольдог) — бусад холбоостой нэг эгнээнд. */
+nav.top-nav #nav-account { display: flex; gap: 4px; align-items: center; }
+nav.top-nav a { color: #c3d3e4; padding: 7px 14px; border-radius: 7px; font-size: .93rem; white-space: nowrap; }
 nav.top-nav a:hover { background: rgba(255, 255, 255, .09); color: #fff; text-decoration: none; }
 nav.top-nav a.here { background: rgba(240, 165, 0, .16); color: #ffca5c; }
 
@@ -252,4 +254,12 @@ footer.bottom strong { color: #fff; display: block; font-weight: 650; }
   .brand small { display: none; }
   .result dl { grid-template-columns: 1fr; gap: 2px 0; }
   .result dd { margin-bottom: 10px; }
+}
+
+/* Утсанд дөрвөн холбоос логоны хажууд багтахгүй («Миний хуудас» зүсэгддэг байв,
+   2026-10-08): цэс логоны доор өөрийн мөрөнд гарна. */
+@media (max-width: 560px) {
+  header.top .wrap { height: auto; flex-wrap: wrap; row-gap: 4px; padding-top: 8px; padding-bottom: 6px; }
+  nav.top-nav { width: 100%; margin-left: -10px; }
+  nav.top-nav a { padding: 7px 10px; }
 }
