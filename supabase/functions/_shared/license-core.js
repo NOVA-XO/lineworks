@@ -48,6 +48,21 @@ export function addDays(isoDate, days) {
   return new Date(d.getTime() + days * 86400000).toISOString().slice(0, 10);
 }
 
+/* Лицензийн дугаар САНАМСАРГҮЙ (эзэн, 2026-10-08: «таахад хялбар байна»). Өмнө нь
+   ZLW-2026-0001, 0002… дараалсан тул олгосон лицензийн тоо, дараагийн дугаар нь
+   ил байв. Одоо ZLW-XXXX-XXXX-XXXX-XXXX: криптографийн санамсаргүй 16 тэмдэгт,
+   Crockford base32 (I, L, O, U байхгүй — 1/I, 0/O андуурагдахгүй), 80 бит.
+   32 нь 256-г яг хуваадаг тул `% 32` хазайлтгүй. Лицензийг хамгаалдаг нь дугаар
+   биш гарын үсэг; дугаар нь зөвхөн таамаглагдах, тоологдохгүй байх ёстой. */
+export const LICENSE_NO_ALPHABET = '0123456789ABCDEFGHJKMNPQRSTVWXYZ';
+export const LICENSE_NO_PATTERN = /^ZLW(-[0-9A-HJKMNP-TV-Z]{4}){4}$/;
+
+export function newLicenseNo() {
+  const bytes = crypto.getRandomValues(new Uint8Array(16));
+  const chars = Array.from(bytes, (b) => LICENSE_NO_ALPHABET[b % 32]).join('');
+  return `ZLW-${chars.slice(0, 4)}-${chars.slice(4, 8)}-${chars.slice(8, 12)}-${chars.slice(12, 16)}`;
+}
+
 export function normaliseMachineId(text) {
   return String(text ?? '').toUpperCase().replace(/[^0-9A-F]/g, '');
 }

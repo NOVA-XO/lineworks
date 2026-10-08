@@ -32,6 +32,7 @@ import { createSign, createPrivateKey, createHmac, createCipheriv, randomBytes }
 import { dirname, join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { spawn } from 'node:child_process';
+import { newLicenseNo } from '../supabase/functions/_shared/license-core.js';
 
 const HERE = dirname(fileURLToPath(import.meta.url));
 const SECRETS = process.env.ZLW_SECRETS
@@ -110,14 +111,11 @@ const ubDate = new Intl.DateTimeFormat('en-CA', {
   timeZone: 'Asia/Ulaanbaatar', year: 'numeric', month: '2-digit', day: '2-digit',
 }).format(now);
 const today = new Date(`${ubDate}T00:00:00Z`);
-const year = today.getUTCFullYear();
-/* Портал ZLW-<он>-<дугаар>-ыг өөрөө олгодог. Энэ нөөц хэрэгсэл L угтвартай
-   (ZLW-2026-L0001) тул хоёулаа хэзээ ч ижил дугаар гаргахгүй. */
-const used = registry
-  .map((r) => /^ZLW-(\d{4})-L(\d+)$/.exec(r.no || ''))
-  .filter((m) => m && Number(m[1]) === year)
-  .map((m) => Number(m[2]));
-const licenseNo = `ZLW-${year}-L${String((used.length ? Math.max(...used) : 0) + 1).padStart(4, '0')}`;
+/* Дугаар САНАМСАРГҮЙ, порталтай ижил үүсгэгчээр (2026-10-08). Хувийн бүртгэлд
+   байгаа дугаартай давхцвал дахин үүсгэнэ — 80 битэд бараг боломжгүй ч. */
+const known = new Set(registry.map((r) => r.no));
+let licenseNo = newLicenseNo();
+while (known.has(licenseNo)) { licenseNo = newLicenseNo(); }
 const till = new Date(today.getTime() + (days - 1) * 86400000);
 
 /* ----------------------------------------------------------- түлхүүр -- */

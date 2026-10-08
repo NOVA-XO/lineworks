@@ -20,7 +20,7 @@
 
 import { createClient } from 'npm:@supabase/supabase-js@2';
 import {
-  issueLicense, ulaanbaatarDate, addDays, PERPETUAL_UNTIL, SUBSCRIPTION_DAYS,
+  issueLicense, newLicenseNo, ulaanbaatarDate, addDays, PERPETUAL_UNTIL, SUBSCRIPTION_DAYS,
 } from '../_shared/license-core.js';
 
 const SITE = Deno.env.get('ZLW_SITE_ORIGIN') ?? 'https://nova-xo.github.io';
@@ -106,31 +106,39 @@ Deno.serve(async (req) => {
   } else {
     till = addDays(from, days - 1);
   }
-  const { data: no, error: noError } = await admin.rpc('next_license_no', { p_year: Number(from.slice(0, 4)) });
-  if (noError || !no) { return reply(500, { error: 'Лицензийн дугаар гаргаж чадсангүй.' }); }
+  // The number is random (newLicenseNo, 80 bits) and part of the signed payload, so a
+  // collision with the unique column means signing again under a new number. At 80 bits
+  // that never happens in practice; the loop is there so it cannot fail if it does.
+  let licence: { id: number; no: string; valid_from: string; valid_until: string } | null = null;
+  let insertError: { code?: string; message?: string } | null = null;
+  for (let attempt = 0; attempt < 3; attempt += 1) {
+    const no = newLicenseNo();
+    let armoured: string;
+    try {
+      ({ armoured } = await issueLicense(
+        {
+          privatePem: Deno.env.get('ZLW_PRIVATE_PEM')!,
+          dataKeyB64: Deno.env.get('ZLW_DATA_KEY')!,
+          pepperB64: Deno.env.get('ZLW_PEPPER')!,
+        },
+        { no, to: profile.full_name, org: profile.organization, edition, mid: request.machine_id, from, till },
+      ));
+    } catch (e) {
+      return reply(500, { error: `Лиценз гаргаж чадсангүй: ${(e as Error).message}` });
+    }
 
-  let armoured: string;
-  try {
-    ({ armoured } = await issueLicense(
-      {
-        privatePem: Deno.env.get('ZLW_PRIVATE_PEM')!,
-        dataKeyB64: Deno.env.get('ZLW_DATA_KEY')!,
-        pepperB64: Deno.env.get('ZLW_PEPPER')!,
-      },
-      { no, to: profile.full_name, org: profile.organization, edition, mid: request.machine_id, from, till },
-    ));
-  } catch (e) {
-    return reply(500, { error: `Лиценз гаргаж чадсангүй: ${(e as Error).message}` });
+    ({ data: licence, error: insertError } = await admin
+      .from('licenses')
+      .insert({
+        no, user_id: request.user_id, machine_id: request.machine_id, edition,
+        valid_from: from, valid_until: till, license_text: armoured,
+      })
+      .select('id, no, valid_from, valid_until')
+      .single());
+    if (!(insertError?.code === '23505' && (insertError.message ?? '').includes('licenses_no_key'))) {
+      break;
+    }
   }
-
-  const { data: licence, error: insertError } = await admin
-    .from('licenses')
-    .insert({
-      no, user_id: request.user_id, machine_id: request.machine_id, edition,
-      valid_from: from, valid_until: till, license_text: armoured,
-    })
-    .select('id, no, valid_from, valid_until')
-    .single();
   if (insertError || !licence) {
     const text = insertError?.message ?? '';
     return reply(text.includes('Prime') ? 409 : 500, { error: text.includes('Prime') ? text : 'Лицензийг хадгалж чадсангүй.' });
