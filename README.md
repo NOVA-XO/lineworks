@@ -96,6 +96,12 @@ account.html: «Миний лицензүүд» → «Хуулах» / «.lic т
 
   Локал `issue-license.mjs` prime олгохгүй.
 - **Нэвтрэлт:** зөвхөн имэйлээр. Google тохируулаагүй.
+- **Нэвтрэх имэйл** (2026-10-08):
+  - Албан ёсны загвар `supabase/templates/magic_link.html` ба `confirmation.html` (Astra). Код ба «Порталд нэвтрэх» товч хоёулаа орсон.
+  - account.html-д код оруулах алхам бий (`verifyOtp`, type `email`).
+  - **Загваруудыг Supabase-д тавих:** Dashboard → Authentication → Email Templates. «Magic Link» ба «Confirm signup»-ийн агуулгыг энэ файлуудаар солино. Гарчиг нь «Zenith LineWorks — нэвтрэх код» ба «Zenith LineWorks — бүртгэлээ баталгаажуулна уу».
+  - Код оруулах алхмыг загвар тавигдсаны **дараа** нийтлэнэ. Өмнөх загварт код ороогүй.
+  - Илгээгч нь Supabase-ийн өөрийн хаяг (цагт 2 имэйл). Өөрийн хаягаар илгээхэд SMTP тохируулна.
 
 ### Supabase-ийг нэг удаа тохируулах
 

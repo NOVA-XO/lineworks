@@ -56,17 +56,28 @@
       <h2>Нэвтрэх</h2>
       <p class="muted">
         Лиценз хүсэх, лицензээ харах, суулгагч татахын тулд нэвтэрнэ үү. Нууц үг шаардахгүй:
-        имэйлдээ ирсэн холбоосыг дарахад нэвтэрнэ. Таны хүсэлт, мэдээлэл нийтэд харагдахгүй.
+        имэйлдээ ирсэн нэг удаагийн кодыг оруулна, эсвэл имэйл доторх товчийг дарна.
+        Таны хүсэлт, мэдээлэл нийтэд харагдахгүй.
       </p>
       <form id="signin-form" class="form">
         <label>Имэйл
           <input id="signin-email" type="email" autocomplete="email" required>
         </label>
         <div class="row">
-          <button class="btn btn-sun" type="submit">Нэвтрэх холбоос илгээх</button>
+          <button class="btn btn-sun" type="submit">Нэвтрэх код илгээх</button>
           <button class="btn btn-line" type="button" id="signin-google">Google-ээр нэвтрэх</button>
         </div>
         <p id="signin-msg" class="msg" role="status"></p>
+      </form>
+      <form id="code-form" class="form" hidden>
+        <label>Имэйлээр ирсэн код
+          <input id="signin-code" class="mono" inputmode="numeric" autocomplete="one-time-code" maxlength="10" required spellcheck="false">
+        </label>
+        <div class="row">
+          <button class="btn btn-sun" type="submit">Нэвтрэх</button>
+          <button class="btn btn-line" type="button" id="code-back">Өөр имэйл</button>
+        </div>
+        <p id="code-msg" class="msg" role="status"></p>
       </form>
     </section>
 

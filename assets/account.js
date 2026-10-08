@@ -23,6 +23,8 @@ async function start() {
   await render();
 
   $('#signin-form').addEventListener('submit', signInWithEmail);
+  $('#code-form').addEventListener('submit', verifyCode);
+  $('#code-back').addEventListener('click', () => showCodeStep(false));
   $('#signin-google').addEventListener('click', () =>
     supabase.auth.signInWithOAuth({ provider: 'google', options: { redirectTo: here + location.search } }));
   $('#profile-form').addEventListener('submit', saveProfile);
@@ -90,7 +92,34 @@ async function signInWithEmail(event) {
   const email = $('#signin-email').value.trim();
   say($('#signin-msg'), 'Илгээж байна…');
   const { error } = await supabase.auth.signInWithOtp({ email, options: { emailRedirectTo: here + location.search } });
-  say($('#signin-msg'), error ? explain(error) : 'Холбоос илгээлээ. Имэйлээ шалгаад холбоосыг дарна уу.', error ? 'err' : 'ok');
+  if (error) { say($('#signin-msg'), explain(error), 'err'); return; }
+  say($('#signin-msg'), '');
+  showCodeStep(true);
+  say($('#code-msg'), `Код ${email} хаяг руу илгээгдлээ. Ирэхгүй бол «Спам» хавтсаа шалгана уу.`, 'ok');
+}
+
+/* Имэйлийн код (2026-10-08, эзэн: Autodesk-ийн OTP имэйл шиг). Холбоос нь өөр төхөөрөмж
+   дээр нээгдвэл энд нэвтрэхгүй байсан; код нь аль ч төхөөрөмжөөс ажиллана. */
+function showCodeStep(on) {
+  show($('#signin-form'), !on);
+  show($('#code-form'), on);
+  $('#signin-code').value = '';
+  say($('#code-msg'), '');
+  if (on) { $('#signin-code').focus(); }
+}
+
+async function verifyCode(event) {
+  event.preventDefault();
+  const email = $('#signin-email').value.trim();
+  const token = $('#signin-code').value.replace(/\D/g, '');
+  if (token.length < 6) { say($('#code-msg'), 'Имэйлээр ирсэн кодыг бүтнээр нь оруулна уу.', 'err'); return; }
+  say($('#code-msg'), 'Шалгаж байна…');
+  const { error } = await supabase.auth.verifyOtp({ email, token, type: 'email' });
+  if (error) {
+    say($('#code-msg'), /expired|invalid/i.test(error.message) ? 'Код буруу эсвэл хугацаа нь дууссан. Шинэ код авна уу.' : explain(error), 'err');
+    return;
+  }
+  showCodeStep(false);
 }
 
 async function saveProfile(event) {
