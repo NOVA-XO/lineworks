@@ -1,15 +1,16 @@
-:root {
-  --danger: #ffaaa3;
-  --status-good-bg: rgba(117, 214, 161, .09);
-  --status-warn-bg: rgba(241, 183, 121, .09);
-  --status-danger-bg: rgba(255, 170, 163, .09);
-}
-
+:root,
 :root[data-theme="light"] {
   --danger: #a52720;
   --status-good-bg: rgba(23, 109, 64, .06);
   --status-warn-bg: rgba(147, 71, 14, .06);
   --status-danger-bg: rgba(165, 39, 32, .06);
+}
+
+:root[data-theme="dark"] {
+  --danger: #ffaaa3;
+  --status-good-bg: rgba(117, 214, 161, .09);
+  --status-warn-bg: rgba(241, 183, 121, .09);
+  --status-danger-bg: rgba(255, 170, 163, .09);
 }
 
 body > *,
@@ -69,16 +70,16 @@ a {
 }
 
 .hero {
-  --accent: #ecb43a;
-  --ink: #f4f6fa;
-  --ink-soft: #b0b7c3;
-  --ink-faint: #919bab;
+  --accent: #f2c744;
+  --ink: #f3f5f9;
+  --ink-soft: #aab4c6;
+  --ink-faint: #8d98ad;
   --line: rgba(255, 255, 255, .11);
   --line-strong: rgba(255, 255, 255, .24);
   --hover: rgba(255, 255, 255, .045);
-  --bg-soft: #0b1424;
-  --card: #101a29;
-  --accent-soft: rgba(236, 180, 58, .11);
+  --bg-soft: #101b35;
+  --card: #141f3b;
+  --accent-soft: rgba(242, 199, 68, .14);
   position: relative;
   isolation: isolate;
   padding: 100px 0 104px;
@@ -86,10 +87,10 @@ a {
   background:
     radial-gradient(
       ellipse at 88% 15%,
-      rgba(236, 180, 58, .07),
+      rgba(242, 199, 68, .08),
       transparent 54%
     ),
-    linear-gradient(135deg, #070d18, #0b1424);
+    linear-gradient(135deg, #101b35, #0b1222);
   color: var(--ink);
   color-scheme: dark;
 }
@@ -113,7 +114,7 @@ a {
 .hero .lede {
   max-width: 62ch;
   margin-bottom: 32px;
-  color: #bbc4d1;
+  color: #c3cbd8;
   font-size: clamp(1rem, 1.5vw, 1.12rem);
   line-height: 1.8;
 }
@@ -126,7 +127,7 @@ a {
 
 .hero-art #tw,
 .hero-art [stroke="#f0a500"] {
-  stroke: #ecb43a;
+  stroke: var(--sun);
 }
 
 .hero-art [stroke="#7e9bb8"] {
@@ -172,7 +173,7 @@ a {
 }
 
 .badge.sun {
-  border-color: rgba(236, 180, 58, .35);
+  border-color: rgba(242, 199, 68, .45);
   background: var(--accent-soft);
   color: var(--accent);
 }
@@ -375,7 +376,7 @@ ol.steps > li::before {
   border: 1px solid var(--sun);
   border-radius: 50%;
   background: var(--sun);
-  color: #171204;
+  color: var(--on-sun);
   font-size: .88rem;
   font-weight: 700;
   content: counter(s);

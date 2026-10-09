@@ -15,7 +15,7 @@ repository-д хадгалагддаг. **Нууц нэг ч байхгүй:** �
 | Файл | Юу вэ |
 |---|---|
 | `index.html`, `download.html`, `license.html` | Сайт. Статик HTML, build алхамгүй. |
-| `assets/zs-theme.css`, `assets/zs-theme.js` | Компанийн сайттай (`00-admin/website`) **яг ижил** нийтлэг сэдэв (2026-10-09): brandbook-ийн өнгө (`#0F336D`, `#ECB43A`), Inter + Manrope фонт, толгой, товч, хөл, анхдагч бараан горим + цайвар горимын товч (`zs-theme`). Нэг талд засвал нөгөө рүү хуулна. |
+| `assets/zs-theme.css`, `assets/zs-theme.js` | Компанийн сайттай (`00-admin/website`) **яг ижил** нийтлэг сэдэв (2026-10-09, GPT-ийн палитр): хар хөх `#101B35`, шар `#F2C744`, цайвар `#F7F8FA`, Inter + Manrope фонт, толгой, товч, хөл. Анхдагч цайвар, бараан горим товчоор (`zs-theme`); `.band-dark` нь үргэлж бараан хэсэг. Нэг талд засвал нөгөө рүү хуулна. |
 | `assets/site.css`, `assets/portal.css` | Энэ сайтын өөрийн хэв маяг (`zs-theme.css`-ийн дараа ачаална). Гаднах эх нь зөвхөн Google Fonts. |
 | `assets/img/` | Компанийн лого (цайвар, бараан) ба favicon. |
 | `account.html`, `admin.html`, `assets/portal*.js` | Нэвтрэх портал (Supabase). |

@@ -9,13 +9,13 @@
   const moonIcon = '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 12.8A9 9 0 1 1 11.2 3a7 7 0 0 0 9.8 9.8z"/></svg>';
 
   const applyTheme = (value) => {
-    const theme = value === "light" ? "light" : "dark";
+    const theme = value === "dark" ? "dark" : "light";
     const light = theme === "light";
 
     root.dataset.theme = theme;
 
     if (themeMeta) {
-      themeMeta.content = light ? "#ffffff" : "#070d18";
+      themeMeta.content = light ? "#ffffff" : "#0b1222";
     }
 
     if (themeButton) {
@@ -57,7 +57,7 @@
 
   if (!menu || !nav) return;
 
-  const mobile = window.matchMedia("(max-width: 1180px)");
+  const mobile = window.matchMedia("(max-width: 900px)");
 
   const setMenu = (open, restoreFocus = false) => {
     const expanded = mobile.matches && open;

@@ -5,16 +5,16 @@
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Удирдлага — Zenith LineWorks</title>
 <meta name="robots" content="noindex">
-<meta name="theme-color" content="#070d18">
+<meta name="theme-color" content="#ffffff">
 <script>
 (() => {
-  let theme = "dark";
+  let theme = "light";
   try {
-    if (localStorage.getItem("zs-theme") === "light") theme = "light";
+    if (localStorage.getItem("zs-theme") === "dark") theme = "dark";
   } catch {}
   document.documentElement.dataset.theme = theme;
   const meta = document.querySelector('meta[name="theme-color"]');
-  if (meta) meta.content = theme === "light" ? "#ffffff" : "#070d18";
+  if (meta) meta.content = theme === "dark" ? "#0b1222" : "#ffffff";
 })();
 </script>
 <link rel="icon" href="assets/img/favicon.svg" type="image/svg+xml">
