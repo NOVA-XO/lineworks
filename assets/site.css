@@ -125,6 +125,30 @@ a {
   height: auto;
 }
 
+.hero-3d {
+  position: relative;
+  display: grid;
+  align-items: center;
+  width: 100%;
+  aspect-ratio: 520 / 360;
+}
+
+.hero-3d canvas {
+  position: absolute;
+  inset: 0;
+  display: none;
+  width: 100%;
+  height: 100%;
+}
+
+.hero-3d.is-3d canvas {
+  display: block;
+}
+
+.hero-3d.is-3d .hero-art {
+  visibility: hidden;
+}
+
 .hero-art #tw,
 .hero-art [stroke="#f0a500"] {
   stroke: var(--sun);
@@ -559,7 +583,8 @@ ol.steps p {
     max-width: 22ch;
   }
 
-  .hero-art {
+  .hero-art,
+  .hero-3d {
     max-width: 560px;
     justify-self: center;
   }
