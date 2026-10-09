@@ -146,6 +146,8 @@
   let H = 0;
   let dpr = 1;
   let F = 1;
+  let CX = 0;
+  let CY = 0;
   let cam = { pos: [0, 0, 0], r: [1, 0, 0], u: [0, 1, 0], f: [0, 0, 1] };
 
   const setCamera = (yaw, pitch) => {
@@ -168,7 +170,7 @@
   const project = (p) => {
     const d = sub(p, cam.pos);
     const z = dot(d, cam.f);
-    return [W / 2 + (dot(d, cam.r) * F) / z, H * 0.56 - (dot(d, cam.u) * F) / z, z];
+    return [CX + (dot(d, cam.r) * F) / z, CY - (dot(d, cam.u) * F) / z, z];
   };
   const depthAlpha = (z) => Math.min(1, Math.max(0.35, 1.45 - z / dist));
 
@@ -269,8 +271,39 @@
     H = Math.max(1, rect.height);
     canvas.width = Math.round(W * dpr);
     canvas.height = Math.round(H * dpr);
-    F = W * 1.05;
+    fit();
   };
+
+  // Найгалт ба хулганы бүх өнцөгт тулгуур, утас хүрээнээс гарахгүй хамгийн том масштаб.
+  const fitPoints = [];
+  towers.forEach((t) => t.segs.forEach(([a, b]) => fitPoints.push(a, b)));
+  wires.forEach((w) => fitPoints.push(...w.pts));
+
+  function fit() {
+    let minX = Infinity;
+    let maxX = -Infinity;
+    let minY = Infinity;
+    let maxY = -Infinity;
+    for (let i = 0; i <= 8; i += 1) {
+      for (let j = -1; j <= 1; j += 1) {
+        setCamera(BASE_YAW + (i / 4 - 1) * SWAY, BASE_PITCH + j * TILT);
+        fitPoints.forEach((p) => {
+          const d = sub(p, cam.pos);
+          const z = dot(d, cam.f);
+          const x = dot(d, cam.r) / z;
+          const y = dot(d, cam.u) / z;
+          if (x < minX) minX = x;
+          if (x > maxX) maxX = x;
+          if (y < minY) minY = y;
+          if (y > maxY) maxY = y;
+        });
+      }
+    }
+    const margin = 0.04;
+    F = Math.min((W * (1 - 2 * margin)) / (maxX - minX), (H * (1 - 2 * margin)) / (maxY - minY));
+    CX = W / 2 - (F * (minX + maxX)) / 2;
+    CY = H / 2 + (F * (minY + maxY)) / 2;
+  }
 
   let mouseX = 0;
   let mouseY = 0;
@@ -284,6 +317,8 @@
 
   const BASE_YAW = -0.68;
   const BASE_PITCH = 0.24;
+  const SWAY = 0.36;
+  const TILT = 0.07;
   let start = 0;
   let raf = 0;
   let visible = true;
@@ -299,7 +334,7 @@
     const t = (now - start) / 1000;
     mouseX += (aimX - mouseX) * 0.05;
     mouseY += (aimY - mouseY) * 0.05;
-    setCamera(BASE_YAW + Math.sin(t * 0.18) * 0.2 + mouseX * 0.15, BASE_PITCH + mouseY * 0.07);
+    setCamera(BASE_YAW + Math.sin(t * 0.18) * 0.2 + mouseX * 0.16, BASE_PITCH + mouseY * TILT);
     draw(t);
     if (visible && !document.hidden) raf = requestAnimationFrame(frame);
   };

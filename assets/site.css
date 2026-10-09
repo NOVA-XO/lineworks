@@ -97,7 +97,7 @@ a {
 
 .hero-grid {
   display: grid;
-  grid-template-columns: minmax(0, 1.12fr) minmax(0, .88fr);
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
   align-items: center;
   gap: 44px;
 }
@@ -130,7 +130,7 @@ a {
   display: grid;
   align-items: center;
   width: 100%;
-  aspect-ratio: 520 / 360;
+  aspect-ratio: 520 / 380;
 }
 
 .hero-3d canvas {
