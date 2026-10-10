@@ -52,8 +52,12 @@ async function start() {
   if (midFromUrl) { $('#machine').value = formatMachine(midFromUrl); }
 }
 
+let renderRun = 0;
+
 async function render() {
+  const run = ++renderRun;
   const session = await wireNav();
+  if (run !== renderRun) return;
   show($('#signed-out'), !session);
   show($('#signed-in'), !!session);
   if (!session) {
@@ -64,10 +68,12 @@ async function render() {
   $('#who').textContent = `Нэвтэрсэн: ${session.user.email ?? ''}`;
   const { data: profile, error } = await supabase.from('profiles')
     .select('full_name, organization, role, created_at').eq('id', session.user.id).single();
+  if (run !== renderRun) return;
   if (error) { say($('#profile-msg'), explain(error), 'err'); return; }
   myProfile = { ...profile, email: session.user.email ?? '' };
   $('#full-name').value = profile.full_name;
   $('#organization').value = profile.organization;
+  $('#who').textContent = `Нэвтэрсэн: ${session.user.email ?? ''}`;
   if (profile.role !== 'user') {
     $('#who').append(' · ', el('a', { href: 'admin.html' }, 'Удирдлагын хуудас'));
   }
