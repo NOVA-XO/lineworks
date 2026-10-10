@@ -135,6 +135,7 @@ function openConsole() {
       panel.hidden = panel.id !== tab.getAttribute('aria-controls');
     }
     if (moveFocus) tab.focus();
+    if (tab.dataset.tab === 'audit') loadAudit();
   }
 
   for (const tab of tabs) {
@@ -171,6 +172,7 @@ function openConsole() {
   loadPrimeLeft().then(loadRequests);
   loadUsers();
   loadLicences();
+  loadAudit();
 }
 
 const who = (p) => (p ? [p.email, p.full_name, p.organization].filter(Boolean).join(' · ') : '');
@@ -277,6 +279,66 @@ async function loadLicences() {
       el('td', { class: 'mono' }, l.no), el('td', {}, who(l.profiles)),
       el('td', { class: 'mono' }, formatMachine(l.machine_id)), el('td', {}, EDITION_MN[l.edition] ?? l.edition),
       el('td', {}, `${date(l.valid_from)} — ${l.valid_until === PERPETUAL_UNTIL ? 'хугацаагүй' : date(l.valid_until)}`), el('td', {}, statusPill(l.status)), el('td', {}, action)));
+  }
+}
+
+/* ------------------------------------------------------------ audit log -- */
+
+const AUDIT_MN = {
+  'request.create': 'Хүсэлт үүссэн',
+  'request.approved': 'Хүсэлт батлагдсан',
+  'request.rejected': 'Хүсэлт татгалзсан',
+  'license.issue': 'Лиценз олгосон',
+  'license.revoked': 'Лиценз цуцалсан',
+  'license.active': 'Лиценз идэвхжсэн',
+  'license.delete': 'Лиценз устгасан',
+  'profile.role': 'Эрх өөрчилсөн',
+};
+const ENTITY_MN = { request: 'Хүсэлт', license: 'Лиценз', profile: 'Хэрэглэгч' };
+const ROLE_SOURCE_MN = { service_role: 'Систем (лиценз гаргагч)', postgres: 'SQL Editor' };
+
+const stamp = new Intl.DateTimeFormat('en-CA', {
+  timeZone: 'Asia/Ulaanbaatar', year: 'numeric', month: '2-digit', day: '2-digit',
+  hour: '2-digit', minute: '2-digit', hourCycle: 'h23',
+});
+const when = (value) => stamp.format(new Date(value)).replace(',', '');
+
+function auditDetails(row) {
+  const d = row.details ?? {};
+  const parts = [];
+  if (d.no) parts.push(d.no);
+  if (d.edition) parts.push(EDITION_MN[d.edition] ?? d.edition);
+  if (d.valid_until) parts.push(`${d.valid_until === PERPETUAL_UNTIL ? 'хугацаагүй' : `${date(d.valid_until)} хүртэл`}`);
+  if (d.kind) parts.push(d.kind === 'renewal' ? 'сунгалт' : 'шинэ');
+  if (d.machine_id) parts.push(formatMachine(d.machine_id));
+  if (row.action === 'profile.role') parts.push(`${d.email ?? ''} ${ROLE_MN[d.from] ?? d.from} → ${ROLE_MN[d.to] ?? d.to}`.trim());
+  if (d.reason) parts.push(`Шалтгаан: ${d.reason}`);
+  if (d.note) parts.push(`Тайлбар: ${d.note}`);
+  return parts.join(' · ');
+}
+
+async function loadAudit() {
+  const body = $('#audit');
+  const [{ data, error }, { data: people }] = await Promise.all([
+    supabase.from('audit_log')
+      .select('id, at, actor, db_role, action, entity, entity_id, details')
+      .order('id', { ascending: false }).limit(200),
+    supabase.from('profiles').select('id, email'),
+  ]);
+  body.replaceChildren();
+  if (error) { say($('#audit-msg'), explain(error), 'err'); return; }
+  const emailOf = new Map((people ?? []).map((p) => [p.id, p.email]));
+  if (!data.length) { say($('#audit-msg'), 'Бүртгэл хоосон байна.'); return; }
+  say($('#audit-msg'), '');
+  for (const row of data) {
+    const actor = (row.actor && emailOf.get(row.actor))
+      ?? ROLE_SOURCE_MN[row.db_role] ?? row.db_role;
+    body.append(el('tr', {},
+      el('td', { class: 'mono' }, when(row.at)),
+      el('td', {}, actor),
+      el('td', {}, AUDIT_MN[row.action] ?? row.action),
+      el('td', {}, `${ENTITY_MN[row.entity] ?? row.entity} #${row.entity_id}`),
+      el('td', {}, auditDetails(row))));
   }
 }
 

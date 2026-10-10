@@ -111,6 +111,7 @@ if (window.top === window.self) {
         <button type="button" role="tab" id="tab-requests" data-tab="requests" aria-controls="panel-requests" aria-selected="true" tabindex="0">Хүсэлтүүд</button>
         <button type="button" role="tab" id="tab-users" data-tab="users" aria-controls="panel-users" aria-selected="false" tabindex="-1">Хэрэглэгчид</button>
         <button type="button" role="tab" id="tab-licenses" data-tab="licenses" aria-controls="panel-licenses" aria-selected="false" tabindex="-1">Лицензүүд</button>
+        <button type="button" role="tab" id="tab-audit" data-tab="audit" aria-controls="panel-audit" aria-selected="false" tabindex="-1">Үйлдлийн бүртгэл</button>
       </div>
 
       <section id="panel-requests" role="tabpanel" aria-labelledby="tab-requests" data-panel="requests" tabindex="0">
@@ -139,6 +140,18 @@ if (window.top === window.self) {
           <tbody id="licenses"></tbody>
         </table></div>
         <p id="licenses-msg" class="msg" role="status"></p>
+      </section>
+
+      <section id="panel-audit" role="tabpanel" aria-labelledby="tab-audit" data-panel="audit" tabindex="0" hidden>
+        <p class="note">
+          Хүсэлт, лиценз, эрхийн өөрчлөлт бүрийг сан өөрөө бичдэг; хэн ч засах, устгах боломжгүй.
+          Сүүлийн 200 бичлэг. Цаг нь Улаанбаатарын.
+        </p>
+        <div class="table-scroll"><table>
+          <thead><tr><th>Огноо</th><th>Хэн</th><th>Үйлдэл</th><th>Объект</th><th>Дэлгэрэнгүй</th></tr></thead>
+          <tbody id="audit"></tbody>
+        </table></div>
+        <p id="audit-msg" class="msg" role="status"></p>
       </section>
     </div>
   </div>

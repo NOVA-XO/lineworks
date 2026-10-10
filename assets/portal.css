@@ -732,3 +732,8 @@ code.mono {
     padding-inline: 11px;
   }
 }
+
+#audit td:nth-child(1),
+#audit td:nth-child(2) {
+  white-space: nowrap;
+}
