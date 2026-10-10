@@ -1,7 +1,8 @@
 /*
  * Нүүрний 3D шугам: 110 кВ-ын нэг хэлхээт сараалжин тулгуур, утас нь
  * катенараар (y = a·ch(x/a)) унжина. Canvas 2D дээр өөрийн проекц —
- * гадны сан ашиглахгүй. Ажиллахгүй бол HTML дахь SVG хэвээр харагдана.
+ * гадны сан ашиглахгүй. Эхний зураг амжилттай гарсны дараа л SVG нуугдана.
+ * Өөрөө хөдлөх нь зөвхөн 3.2 с танилцуулга; дараа нь зөвхөн хулганаар.
  */
 (() => {
   const host = document.querySelector('.hero-3d');
@@ -15,8 +16,6 @@
   canvas.setAttribute('role', 'img');
   canvas.setAttribute('aria-label', svg?.getAttribute('aria-label') || 'Агаарын шугамын 3D дүрслэл');
   host.append(canvas);
-  host.classList.add('is-3d');
-  svg?.setAttribute('aria-hidden', 'true');
 
   const reduced = window.matchMedia('(prefers-reduced-motion: reduce)');
 
@@ -101,17 +100,30 @@
     return { segs, phases, earth: peak, delay: i * 0.18 };
   });
 
-  // Катенар: тулах цэгүүдийн шулуунаас доош f(s) = a·(ch(L/2a) − ch((s − L/2)/a)).
+  // Өөр өндөртэй тулах цэгүүдийг холбох шилжүүлсэн катенар.
+  // a нь энэ тайлбар зургийн параметр; инженерийн таталтын тооцоо биш.
   const catenary = (A, B, a, n = 36) => {
     const L = Math.hypot(B[0] - A[0], B[2] - A[2]);
-    const top = a * Math.cosh(L / (2 * a));
+    if (L === 0) return [A, B];
+
+    const dy = B[1] - A[1];
+    const center = L / 2 - a * Math.asinh(
+      dy / (2 * a * Math.sinh(L / (2 * a)))
+    );
+    const origin = Math.cosh(center / a);
     const pts = [];
+
     for (let i = 0; i <= n; i += 1) {
       const t = i / n;
       const s = t * L;
-      const sag = top - a * Math.cosh((s - L / 2) / a);
-      pts.push([A[0] + (B[0] - A[0]) * t, A[1] + (B[1] - A[1]) * t - sag, A[2] + (B[2] - A[2]) * t]);
+      const y = A[1] + a * (Math.cosh((s - center) / a) - origin);
+      pts.push([
+        A[0] + (B[0] - A[0]) * t,
+        y,
+        A[2] + (B[2] - A[2]) * t
+      ]);
     }
+
     return pts;
   };
 
@@ -265,7 +277,7 @@
 
   // ---- Хэмжээ, хөдөлгөөн ------------------------------------------------------------
   const resize = () => {
-    const rect = canvas.getBoundingClientRect();
+    const rect = host.getBoundingClientRect();
     dpr = Math.min(2, window.devicePixelRatio || 1);
     W = Math.max(1, rect.width);
     H = Math.max(1, rect.height);
@@ -274,7 +286,7 @@
     fit();
   };
 
-  // Найгалт ба хулганы бүх өнцөгт тулгуур, утас хүрээнээс гарахгүй хамгийн том масштаб.
+  // Танилцуулгын найгалт ба хулганы бүх өнцөгт тулгуур, утас хүрээнээс гарахгүй хамгийн том масштаб.
   const fitPoints = [];
   towers.forEach((t) => t.segs.forEach(([a, b]) => fitPoints.push(a, b)));
   wires.forEach((w) => fitPoints.push(...w.pts));
@@ -309,63 +321,84 @@
   let mouseY = 0;
   let aimX = 0;
   let aimY = 0;
-  host.closest('.hero')?.addEventListener('pointermove', (e) => {
-    const r = host.getBoundingClientRect();
-    aimX = Math.max(-1, Math.min(1, ((e.clientX - r.left) / r.width - 0.5) * 2));
-    aimY = Math.max(-1, Math.min(1, ((e.clientY - r.top) / r.height - 0.5) * 2));
-  });
 
   const BASE_YAW = -0.68;
   const BASE_PITCH = 0.24;
   const SWAY = 0.36;
   const TILT = 0.07;
+  const INTRO = 3.2;
   let start = 0;
   let raf = 0;
   let visible = true;
 
+  const paint = (t) => {
+    const sway = t < INTRO ? Math.sin((Math.PI * t) / INTRO) * 0.2 : 0;
+    setCamera(BASE_YAW + sway + mouseX * 0.16, BASE_PITCH + mouseY * TILT);
+    draw(t);
+  };
+
   const still = () => {
-    setCamera(BASE_YAW, BASE_PITCH);
-    draw(99);
+    mouseX = 0;
+    mouseY = 0;
+    paint(99);
   };
 
   const frame = (now) => {
     raf = 0;
     if (!start) start = now;
     const t = (now - start) / 1000;
-    mouseX += (aimX - mouseX) * 0.05;
-    mouseY += (aimY - mouseY) * 0.05;
-    setCamera(BASE_YAW + Math.sin(t * 0.18) * 0.2 + mouseX * 0.16, BASE_PITCH + mouseY * TILT);
-    draw(t);
-    if (visible && !document.hidden) raf = requestAnimationFrame(frame);
+    mouseX += (aimX - mouseX) * 0.08;
+    mouseY += (aimY - mouseY) * 0.08;
+    paint(t);
+    const settling = Math.abs(aimX - mouseX) > 0.002 || Math.abs(aimY - mouseY) > 0.002;
+    if ((t < INTRO || settling) && visible && !document.hidden) raf = requestAnimationFrame(frame);
   };
 
   const run = () => {
     if (reduced.matches) {
+      cancelAnimationFrame(raf);
+      raf = 0;
       still();
       return;
     }
     if (!raf && visible && !document.hidden) raf = requestAnimationFrame(frame);
   };
 
-  resize();
-  run();
-  if (reduced.matches) still();
-
-  window.addEventListener('resize', () => {
-    resize();
-    if (reduced.matches || !raf) still();
+  host.closest('.hero')?.addEventListener('pointermove', (e) => {
+    if (reduced.matches) return;
+    const r = host.getBoundingClientRect();
+    aimX = Math.max(-1, Math.min(1, ((e.clientX - r.left) / r.width - 0.5) * 2));
+    aimY = Math.max(-1, Math.min(1, ((e.clientY - r.top) / r.height - 0.5) * 2));
     run();
+  });
+
+  try {
+    resize();
+    if (reduced.matches) still();
+    else paint(0);
+    host.classList.add('is-3d');
+    svg?.setAttribute('aria-hidden', 'true');
+  } catch {
+    canvas.remove();
+    return;
+  }
+  run();
+
+  let resizeRaf = 0;
+  window.addEventListener('resize', () => {
+    if (resizeRaf) return;
+    resizeRaf = requestAnimationFrame(() => {
+      resizeRaf = 0;
+      resize();
+      if (!raf) paint(start ? (performance.now() - start) / 1000 : 99);
+    });
   });
   document.addEventListener('visibilitychange', run);
-  reduced.addEventListener?.('change', () => {
-    cancelAnimationFrame(raf);
-    raf = 0;
-    run();
-  });
+  reduced.addEventListener?.('change', run);
   if ('IntersectionObserver' in window) {
     new IntersectionObserver((entries) => {
       visible = entries.some((e) => e.isIntersecting);
       run();
-    }).observe(canvas);
+    }).observe(host);
   }
 })();

@@ -82,7 +82,7 @@
   max-width: 100%;
   min-height: 46px;
   padding: 11px 13px;
-  border: 1px solid var(--line-strong);
+  border: 1px solid var(--ink-faint);
   border-radius: 11px;
   background: var(--bg-soft);
   color: var(--ink);

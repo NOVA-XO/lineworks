@@ -52,6 +52,17 @@
     }
   });
 
+  document.querySelectorAll(".table-scroll").forEach((region, index) => {
+    region.tabIndex = 0;
+    region.setAttribute("role", "region");
+
+    if (!region.hasAttribute("aria-label") && !region.hasAttribute("aria-labelledby")) {
+      const heading = region.closest("section")?.querySelector("h2, h3, h4");
+      const name = heading?.textContent.trim() || `Хүснэгт ${index + 1}`;
+      region.setAttribute("aria-label", `${name} — хэвтээ гүйлгэх`);
+    }
+  });
+
   const menu = document.getElementById("menu");
   const nav = document.getElementById("nav");
 
@@ -72,7 +83,12 @@
   menu.setAttribute("aria-controls", nav.id);
 
   menu.addEventListener("click", () => {
-    setMenu(menu.getAttribute("aria-expanded") !== "true");
+    const open = menu.getAttribute("aria-expanded") !== "true";
+    setMenu(open);
+
+    if (open && mobile.matches) {
+      nav.querySelector("a[href]")?.focus({ preventScroll: true });
+    }
   });
 
   nav.addEventListener("click", (event) => {

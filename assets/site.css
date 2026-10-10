@@ -541,7 +541,7 @@ ol.steps p {
   max-width: 100%;
 }
 
-@media (max-width: 1180px) {
+@media (max-width: 900px) {
   .nav #nav-account {
     display: flex;
     flex-direction: column;
@@ -561,7 +561,9 @@ ol.steps p {
     flex: 1;
     max-width: none;
   }
+}
 
+@media (max-width: 1180px) {
   .hero {
     padding-block: 76px 80px;
   }

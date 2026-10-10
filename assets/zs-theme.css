@@ -23,7 +23,7 @@
   --card: #ffffff;
   --ink: #101b35;
   --ink-soft: #5b6a80;
-  --ink-faint: #64748b;
+  --ink-faint: #617187;
   --line: rgba(16, 27, 53, .12);
   --line-strong: rgba(16, 27, 53, .26);
   --header-bg: rgba(255, 255, 255, .9);
@@ -155,6 +155,25 @@ p {
   max-width: var(--wrap);
   margin-inline: auto;
   padding-inline: 28px;
+}
+
+.skip-link {
+  position: fixed;
+  top: 12px;
+  left: 12px;
+  z-index: 200;
+  max-width: calc(100% - 24px);
+  padding: 12px 18px;
+  border-radius: 10px;
+  background: var(--sun);
+  color: var(--on-sun);
+  font-weight: 600;
+  text-decoration: none;
+  transform: translateY(calc(-100% - 20px));
+}
+
+.skip-link:focus {
+  transform: none;
 }
 
 .sr-only {
@@ -547,6 +566,11 @@ p {
 
 .foot a:hover {
   color: var(--ink);
+}
+
+.foot .btn-sun,
+.foot .btn-sun:hover {
+  color: var(--on-sun);
 }
 
 .foot .logo-foot {
