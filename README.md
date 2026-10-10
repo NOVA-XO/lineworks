@@ -206,7 +206,36 @@ Edge Function: JWT-г auth сервер шалгана, эрх сангаас, a
 - **L2** Лиценз гаргахад алдаа гарвал дотоод мессежийг буцаахгүй, логт бичнэ.
 
 Нээлттэй: Supabase / GitHub / админ Gmail-д 2 шаттай нэвтрэлт, `private.pem`-ийн офлайн хуулбар (эзэн);
-CSP (Cloudflare-ийн дараа); сангийн долоо хоног тутмын нөөцлөлт; Auth-ийн redirect жагсаалтыг самбараас шалгах.
+CSP (Cloudflare-ийн дараа); Auth-ийн redirect жагсаалтыг самбараас шалгах.
+
+### Сангийн өөрчлөлт — зөвхөн migration-ээр
+
+`supabase_migrations` бүртгэл 2026-10-10-нд `migration repair`-ээр сэргээгдсэн (өмнө нь SQL Editor-оор гараар
+ажиллуулж байсан тул хоосон байв). Цаашид:
+
+```
+npx supabase db push --dry-run --linked --project-ref yfusttksvhdssjizxebc
+npx supabase db push --yes --linked --project-ref yfusttksvhdssjizxebc
+```
+
+SQL Editor-ийг зөвхөн шалгалтад. `01-main` (= `20261007000000_portal.sql`)-ийг **дахин бүү ажиллуул**.
+
+### Үйлдлийн бүртгэл (`audit_log`, 2026-10-10)
+
+Хүсэлт үүсэх / батлах / татгалзах, лиценз олгох / цуцлах / устгах, эрх өөрчлөхийг триггер бичнэ.
+Хэн ч (service_role ч) засах, устгах боломжгүй; уншдаг нь viewer, admin. `licenses.revoked_by` нэмэгдсэн.
+`db_role` нь жинхэнэ дүр (`authenticated` / `service_role` / SQL Editor-оос бол `postgres`).
+
+### Нөөцлөлт (S1, 2026-10-10)
+
+`tools/backup-db.mjs` — profiles, requests, licenses, audit_log, migration-ийн жагсаалтыг нэг JSON болгон
+`00-admin/secrets/zenith-lineworks/db-backups/lineworks-db_<огноо>.json`-д (git-ийн гадна: имэйл,
+лицензийн текст агуулна). Windows Task Scheduler «ZenithLineWorks DB backup» — ням гараг 10:00, компьютер
+унтраалттай байсан бол асмагц. Үр дүн `backup.log`-д. Supabase CLI-ийн өөрийн нэвтрэлтийг ашиглана.
+
+Сэргээх (SQL Editor, `postgres`): `profiles` → `licenses` → `requests` → `audit_log` дарааллаар
+`insert into public.<хүснэгт> overriding system value select * from jsonb_populate_recordset(null::public.<хүснэгт>, '<JSON массив>');`
+`profiles` нь `auth.users`-тэй холбоотой тул хэрэглэгчид дахин нэвтэрсний дараа (эсвэл id-тай нь) сэргээнэ.
 
 ---
 
