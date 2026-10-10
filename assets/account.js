@@ -24,9 +24,27 @@ async function start() {
 
   $('#signin-form').addEventListener('submit', signInWithEmail);
   $('#code-form').addEventListener('submit', verifyCode);
-  $('#code-back').addEventListener('click', () => showCodeStep(false));
-  $('#signin-google').addEventListener('click', () =>
-    supabase.auth.signInWithOAuth({ provider: 'google', options: { redirectTo: here + location.search } }));
+  $('#code-back').addEventListener('click', () => {
+    showCodeStep(false);
+    $('#signin-email').focus();
+  });
+  $('#signin-google').addEventListener('click', async () => {
+    const button = $('#signin-google');
+    button.disabled = true;
+    say($('#signin-msg'), 'Google нэвтрэлт рүү шилжүүлж байна…');
+
+    try {
+      const { error } = await supabase.auth.signInWithOAuth({
+        provider: 'google',
+        options: { redirectTo: here + location.search },
+      });
+      if (error) throw error;
+    } catch (error) {
+      say($('#signin-msg'), explain(error) || 'Google-ээр нэвтэрч чадсангүй. Дахин оролдоно уу.', 'err');
+    } finally {
+      button.disabled = false;
+    }
+  });
   $('#profile-form').addEventListener('submit', saveProfile);
   $('#request-form').addEventListener('submit', sendRequest);
   $('#kind').addEventListener('change', () => show($('#renews-label'), $('#kind').value === 'renewal'));
@@ -124,7 +142,13 @@ async function verifyCode(event) {
 
 async function saveProfile(event) {
   event.preventDefault();
-  const { data: { user } } = await supabase.auth.getUser();
+  const { data: { user }, error: authError } = await supabase.auth.getUser();
+  if (authError || !user) {
+    say($('#profile-msg'), authError
+      ? explain(authError)
+      : 'Нэвтрэлтийн хугацаа дууссан. Дахин нэвтэрнэ үү.', 'err');
+    return;
+  }
   const { error } = await supabase.from('profiles')
     .update({ full_name: $('#full-name').value.trim(), organization: $('#organization').value.trim() })
     .eq('id', user.id);

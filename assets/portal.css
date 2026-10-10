@@ -145,17 +145,6 @@ code.mono {
   overflow-wrap: anywhere;
 }
 
-.form .inline {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: end;
-  gap: 12px;
-}
-
-.form .inline label {
-  flex: 1 1 140px;
-}
-
 #signin-form,
 #code-form,
 #mfa-form {
@@ -291,8 +280,7 @@ code.mono {
   max-width: 100%;
 }
 
-.actions .btn,
-.small.btn {
+.actions .btn {
   min-height: 44px;
   padding: 9px 13px;
   font-size: .85rem;

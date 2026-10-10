@@ -99,13 +99,13 @@
 
     <div id="console" hidden>
       <p class="muted"><span id="mode"></span> <strong id="prime-left"></strong></p>
-      <div class="tabs" role="tablist">
-        <button role="tab" data-tab="requests" aria-selected="true">Хүсэлтүүд</button>
-        <button role="tab" data-tab="users" aria-selected="false">Хэрэглэгчид</button>
-        <button role="tab" data-tab="licenses" aria-selected="false">Лицензүүд</button>
+      <div class="tabs" role="tablist" aria-label="Удирдлагын хэсгүүд" aria-orientation="horizontal">
+        <button type="button" role="tab" id="tab-requests" data-tab="requests" aria-controls="panel-requests" aria-selected="true" tabindex="0">Хүсэлтүүд</button>
+        <button type="button" role="tab" id="tab-users" data-tab="users" aria-controls="panel-users" aria-selected="false" tabindex="-1">Хэрэглэгчид</button>
+        <button type="button" role="tab" id="tab-licenses" data-tab="licenses" aria-controls="panel-licenses" aria-selected="false" tabindex="-1">Лицензүүд</button>
       </div>
 
-      <section data-panel="requests">
+      <section id="panel-requests" role="tabpanel" aria-labelledby="tab-requests" data-panel="requests" tabindex="0">
         <div class="table-scroll"><table>
           <thead><tr><th>Огноо</th><th>Хэрэглэгч</th><th>Төрөл</th><th>Компьютер</th><th>Тайлбар</th><th>Төлөв</th><th></th></tr></thead>
           <tbody id="requests"></tbody>
@@ -113,7 +113,7 @@
         <p id="requests-msg" class="msg" role="status"></p>
       </section>
 
-      <section data-panel="users" hidden>
+      <section id="panel-users" role="tabpanel" aria-labelledby="tab-users" data-panel="users" tabindex="0" hidden>
         <div class="table-scroll"><table>
           <thead><tr><th>Имэйл</th><th>Нэр</th><th>Байгууллага</th><th>Бүртгүүлсэн</th><th>Эрх</th></tr></thead>
           <tbody id="users"></tbody>
@@ -121,7 +121,7 @@
         <p id="users-msg" class="msg" role="status"></p>
       </section>
 
-      <section data-panel="licenses" hidden>
+      <section id="panel-licenses" role="tabpanel" aria-labelledby="tab-licenses" data-panel="licenses" tabindex="0" hidden>
         <p class="note warn">
           Цуцалсан лиценз интернэтгүй шалгагддаг тул хугацаа нь дуустал ажилласаар байна. Цуцлалт
           нь сунгалтыг хааж, бүртгэлд тэмдэглэнэ.

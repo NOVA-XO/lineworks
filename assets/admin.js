@@ -20,7 +20,11 @@ async function start() {
     $('#gate').replaceChildren('Эхлээд ', el('a', { href: 'account.html' }, 'нэвтэрнэ'), ' үү.');
     return;
   }
-  const { data: profile } = await supabase.from('profiles').select('id, role').eq('id', session.user.id).single();
+  const { data: profile, error: profileError } = await supabase.from('profiles').select('id, role').eq('id', session.user.id).single();
+  if (profileError) {
+    $('#gate').textContent = `Профайлыг ачаалж чадсангүй. ${explain(profileError)}`;
+    return;
+  }
   if (!profile || profile.role === 'user') { $('#gate').textContent = 'Эрх хүрэхгүй байна.'; return; }
   me = profile;
 
@@ -38,29 +42,77 @@ let factorId = null;
 
 async function startMfa() {
   show($('#mfa'), true);
-  const { data } = await supabase.auth.mfa.listFactors();
-  const verified = (data?.totp ?? []).find((f) => f.status === 'verified');
-  if (verified) {
-    factorId = verified.id;
-  } else {
-    const { data: enrolled, error } = await supabase.auth.mfa.enroll({ factorType: 'totp', friendlyName: `zlw-${Date.now()}` });
-    if (error) { say($('#mfa-msg'), explain(error), 'err'); return; }
-    factorId = enrolled.id;
-    $('#mfa-qr').src = enrolled.totp.qr_code;
-    $('#mfa-secret').textContent = enrolled.totp.secret;
-    show($('#mfa-enroll'), true);
+  show($('#mfa-enroll'), false);
+  factorId = null;
+
+  const form = $('#mfa-form');
+  const submit = form.querySelector('button[type="submit"]');
+  submit.disabled = true;
+  form.onsubmit = (event) => {
+    if (!factorId) {
+      event.preventDefault();
+      return;
+    }
+    return verifyMfa(event);
+  };
+
+  say($('#mfa-msg'), 'Баталгаажуулалтыг бэлдэж байна…');
+
+  try {
+    const { data, error } = await supabase.auth.mfa.listFactors();
+    if (error) throw error;
+
+    const verified = (data?.totp ?? []).find((f) => f.status === 'verified');
+    if (verified) {
+      factorId = verified.id;
+    } else {
+      const { data: enrolled, error: enrollError } = await supabase.auth.mfa.enroll({
+        factorType: 'totp',
+        friendlyName: `zlw-${Date.now()}`,
+      });
+      if (enrollError) throw enrollError;
+      $('#mfa-qr').src = enrolled.totp.qr_code;
+      $('#mfa-secret').textContent = enrolled.totp.secret;
+      show($('#mfa-enroll'), true);
+      factorId = enrolled.id;
+    }
+
+    submit.disabled = false;
+    say($('#mfa-msg'), '');
+    $('#mfa-code').focus();
+  } catch (error) {
+    factorId = null;
+    say($('#mfa-msg'),
+      `Баталгаажуулалтыг бэлдэж чадсангүй. ${explain(error)} Хуудсыг дахин ачаална уу.`,
+      'err');
   }
-  $('#mfa-form').addEventListener('submit', verifyMfa);
 }
 
 async function verifyMfa(event) {
   event.preventDefault();
-  const code = $('#mfa-code').value.trim();
-  const { error } = await supabase.auth.mfa.challengeAndVerify({ factorId, code });
-  if (error) { say($('#mfa-msg'), 'Код буруу эсвэл хугацаа нь өнгөрсөн.', 'err'); return; }
-  show($('#mfa'), false);
-  canWrite = true;
-  openConsole();
+  const submit = $('#mfa-form button[type="submit"]');
+  if (!factorId || submit.disabled) return;
+
+  submit.disabled = true;
+  say($('#mfa-msg'), 'Шалгаж байна…');
+
+  try {
+    const code = $('#mfa-code').value.trim();
+    const { error } = await supabase.auth.mfa.challengeAndVerify({ factorId, code });
+    if (error) throw error;
+
+    $('#mfa-code').value = '';
+    show($('#mfa'), false);
+    canWrite = true;
+    openConsole();
+    $('#console [role="tab"][aria-selected="true"]').focus();
+  } catch (error) {
+    say($('#mfa-msg'),
+      `Баталгаажуулж чадсангүй. ${explain(error) || 'Дахин оролдоно уу.'}`,
+      'err');
+  } finally {
+    submit.disabled = false;
+  }
 }
 
 /* --------------------------------------------------------------- console -- */
@@ -69,12 +121,53 @@ function openConsole() {
   show($('#gate'), false);
   show($('#console'), true);
   $('#mode').textContent = canWrite ? 'Админ — 2 шаттай баталгаажсан.' : 'Харах эрхтэй — өөрчлөлт хийх боломжгүй.';
-  for (const tab of document.querySelectorAll('[role=tab]')) {
-    tab.addEventListener('click', () => {
-      for (const t of document.querySelectorAll('[role=tab]')) { t.setAttribute('aria-selected', String(t === tab)); }
-      for (const p of document.querySelectorAll('[data-panel]')) { p.hidden = p.dataset.panel !== tab.dataset.tab; }
-    });
+  const tablist = $('#console [role="tablist"]');
+  const tabs = [...tablist.querySelectorAll('[role="tab"]')];
+  const panels = [...document.querySelectorAll('#console [role="tabpanel"]')];
+
+  function activateTab(tab, moveFocus = false) {
+    for (const item of tabs) {
+      const selected = item === tab;
+      item.setAttribute('aria-selected', String(selected));
+      item.tabIndex = selected ? 0 : -1;
+    }
+    for (const panel of panels) {
+      panel.hidden = panel.id !== tab.getAttribute('aria-controls');
+    }
+    if (moveFocus) tab.focus();
   }
+
+  for (const tab of tabs) {
+    tab.onclick = () => activateTab(tab);
+    tab.onkeydown = (event) => {
+      if (event.altKey || event.ctrlKey || event.metaKey || event.shiftKey) return;
+
+      const index = tabs.indexOf(tab);
+      let next;
+
+      switch (event.key) {
+        case 'ArrowLeft':
+          next = (index - 1 + tabs.length) % tabs.length;
+          break;
+        case 'ArrowRight':
+          next = (index + 1) % tabs.length;
+          break;
+        case 'Home':
+          next = 0;
+          break;
+        case 'End':
+          next = tabs.length - 1;
+          break;
+        default:
+          return;
+      }
+
+      event.preventDefault();
+      activateTab(tabs[next], true);
+    };
+  }
+
+  activateTab(tabs.find(tab => tab.getAttribute('aria-selected') === 'true') ?? tabs[0]);
   loadPrimeLeft().then(loadRequests);
   loadUsers();
   loadLicences();
