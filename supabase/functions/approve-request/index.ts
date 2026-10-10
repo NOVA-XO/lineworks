@@ -18,7 +18,7 @@
    Нууц (supabase secrets set): ZLW_PRIVATE_PEM, ZLW_DATA_KEY, ZLW_PEPPER.
    ========================================================================== */
 
-import { createClient } from 'npm:@supabase/supabase-js@2';
+import { createClient } from 'npm:@supabase/supabase-js@2.117.3';
 import {
   issueLicense, newLicenseNo, ulaanbaatarDate, addDays, PERPETUAL_UNTIL, SUBSCRIPTION_DAYS,
 } from '../_shared/license-core.js';
@@ -124,7 +124,8 @@ Deno.serve(async (req) => {
         { no, to: profile.full_name, org: profile.organization, edition, mid: request.machine_id, from, till },
       ));
     } catch (e) {
-      return reply(500, { error: `Лиценз гаргаж чадсангүй: ${(e as Error).message}` });
+      console.error('issueLicense failed:', (e as Error).message);
+      return reply(500, { error: 'Лиценз гаргаж чадсангүй. Функцийн логийг шалгана уу.' });
     }
 
     ({ data: licence, error: insertError } = await admin

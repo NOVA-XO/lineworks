@@ -184,6 +184,30 @@ node tools/verify-license.mjs ../../00-admin/secrets/zenith-lineworks/public.pem
   эзэмшигчийн хувийн бүртгэл болон тухайн хүний лицензэд байна.
 - **Програм:** таны зураг, тооцоог хаашаа ч илгээхгүй.
 
+## Хамгаалалт
+
+**Шалгалт 2026-10-10 (Claude; Astra-гийн хөндлөнгийн хяналт квотын улмаас хойшилсон).**
+Ажиллаж буй сантай тулгасан: 3 хүснэгт бүгд RLS, 9 дүрэм migration-тай ижил, өөрийгөө админ болгох /
+лиценз шууд нэмэх / бусдын мөр унших — бүгд хаалттай (`set local role authenticated` + rollback туршилт).
+Edge Function: JWT-г auth сервер шалгана, эрх сангаас, aal2 заавал, зэрэг батлахад нэг л лиценз.
+
+Засагдсан:
+- **H1** `supabase-js`-ийг гадны CDN-ээс (хувилбаргүй) биш, `assets/vendor/supabase-js-2.117.3.esm.js`-ээс
+  (esbuild-ээр нэг файл, SHA-256 `5aa99d86a9cfc7a4cde51a4c5d4ba5a5bd887e92859c83a22f8cc2ef7218fa60`).
+  Edge Function `npm:@supabase/supabase-js@2.117.3`. **Шинэчлэх:** хоосон хавтсанд
+  `npm install --save-exact @supabase/supabase-js@<x> esbuild` →
+  `export { createClient } from '@supabase/supabase-js'` гэсэн entry-г
+  `esbuild --bundle --format=esm --platform=browser --target=es2020 --minify --legal-comments=eof` →
+  файлын нэр, `portal.js`-ийн import, функцийн хувилбар, энэ SHA-256-г хамт солино.
+- **M1** `account.html`, `admin.html` — өөр сайтын iframe дотор хуудас харагдахгүй (clickjacking).
+  DNS Cloudflare-д шилжсэний дараа `frame-ancestors` / `X-Frame-Options` header нэмнэ.
+- **M2** Имэйлийн загвар «15 минут». **Supabase → Auth → Email OTP Expiration = 900** гэж самбарт тохируулах.
+- **L1** `20261010000000_tighten_grants.sql` — TRUNCATE/REFERENCES/TRIGGER, туслах функцийн anon эрх хасагдсан.
+- **L2** Лиценз гаргахад алдаа гарвал дотоод мессежийг буцаахгүй, логт бичнэ.
+
+Нээлттэй: Supabase / GitHub / админ Gmail-д 2 шаттай нэвтрэлт, `private.pem`-ийн офлайн хуулбар (эзэн);
+CSP (Cloudflare-ийн дараа); сангийн долоо хоног тутмын нөөцлөлт; Auth-ийн redirect жагсаалтыг самбараас шалгах.
+
 ---
 
 © Zenith Solar ХХК. Сайтын эх код нь энэ repository-д нээлттэй. Zenith LineWorks програм

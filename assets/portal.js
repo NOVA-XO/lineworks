@@ -1,7 +1,9 @@
 /* Порталын нийтлэг хэсэг: Supabase клиент, нэвтрэлтийн төлөв, форматлах туслахууд.
    Хэрэглэгчийн өгөгдлийг ҮРГЭЛЖ textContent-оор бичнэ — innerHTML хэзээ ч үгүй. */
 
-import { createClient } from 'https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/+esm';
+// Өөрийн сайтаас, тогтсон хувилбар (2026-10-10 хамгаалалтын шалгалт H1): гадны CDN
+// хакерддвал админы 2 шаттай сесс дотор код ажиллах эрсдэлтэй байсан. Шинэчлэх заавар README-д.
+import { createClient } from './vendor/supabase-js-2.117.3.esm.js';
 import { SUPABASE_URL, SUPABASE_ANON_KEY } from './portal-config.js';
 
 export const configured = !SUPABASE_URL.startsWith('{{');
