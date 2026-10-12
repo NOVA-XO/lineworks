@@ -54,6 +54,19 @@ export const EDITION_MN = { trial: 'Туршилтын', subscription: 'Захи
 export const PERPETUAL_UNTIL = '9999-12-31';
 export const ROLE_MN = { user: 'Хэрэглэгч', viewer: 'Харагч', admin: 'Админ' };
 
+/* Нэвтрэлтийн аль үйлчилгээ асаалттай вэ (Auth-ийн нийтийн тохиргоо). Google-ийг самбарт
+   асаамагц товч өөрөө гарна; уншиж чадахгүй бол асаалтгүй гэж үзнэ. */
+export async function enabledProviders() {
+  if (!configured) return {};
+  try {
+    const response = await fetch(`${SUPABASE_URL}/auth/v1/settings`, { headers: { apikey: SUPABASE_ANON_KEY } });
+    if (!response.ok) return {};
+    return (await response.json()).external ?? {};
+  } catch {
+    return {};
+  }
+}
+
 export const statusPill = (status) => el('span', { class: `status ${status}` }, STATUS_MN[status] ?? status);
 
 /** Сангийн алдааг хэрэглэгчид ойлгогдох мөр болгоно. Триггерийн мессеж аль хэдийн монголоор. */

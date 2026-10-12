@@ -1,5 +1,5 @@
 import {
-  supabase, configured, $, el, show, say, explain, wireNav, copy, download,
+  supabase, configured, $, el, show, say, explain, wireNav, copy, download, enabledProviders,
   machineDigits, formatMachine, date, daysLeft, statusPill, KIND_MN, EDITION_MN, PERPETUAL_UNTIL,
 } from './portal.js';
 import { INSTALLER_PATH } from './portal-config.js';
@@ -28,6 +28,7 @@ async function start() {
     showCodeStep(false);
     $('#signin-email').focus();
   });
+  enabledProviders().then((providers) => show($('#signin-google'), providers.google === true));
   $('#signin-google').addEventListener('click', async () => {
     const button = $('#signin-google');
     button.disabled = true;
