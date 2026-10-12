@@ -7,7 +7,7 @@ const TODAY = '2026-10-08';
 const A = 'C557415F31D2A2E3';
 const B = '0000111122223333';
 const C = 'AAAABBBBCCCCDDDD';
-const profile = { full_name: 'Бат', organization: 'ABC ХХК', role: 'user', created_at: '2026-10-07T03:00:00Z' };
+const profile = { full_name: 'Бат', organization: 'ABC ХХК', affiliation: 'company', role: 'user', created_at: '2026-10-07T03:00:00Z' };
 const lic = (o) => ({
   id: 1, no: 'ZLW-AAAA-BBBB-CCCC-DDDD', machine_id: A, edition: 'subscription', status: 'active',
   valid_from: '2026-10-01', valid_until: '2027-09-30', license_text: `-----BEGIN ZENITH LINEWORKS LICENSE-----\nZLW1.${'x'.repeat(600)}.sig12345\n-----END ZENITH LINEWORKS LICENSE-----`,
@@ -86,6 +86,30 @@ test('no licences, no requests: empty but complete profile', () => {
   assert.equal(m.primary, null);
   assert.deepEqual(m.machines, []);
   assert.equal(m.complete, true);
+  assert.equal(m.affiliation, 'company');
   assert.equal(m.since, '2026-10-07');
   assert.equal(profileModel({ profile: { ...profile, organization: ' ' }, email: '', today: TODAY, licences: [], requests: [] }).complete, false);
+});
+
+test('affiliation: company and student are complete; legacy profiles need a choice', () => {
+  const model = (p) => profileModel({
+    profile: p, email: '', today: TODAY, licences: [], requests: [],
+  });
+
+  const student = model({ ...profile, affiliation: 'student', organization: 'ШУТИС' });
+  assert.equal(student.complete, true);
+  assert.equal(student.affiliation, 'student');
+  assert.equal(student.organization, 'ШУТИС');
+
+  for (const affiliation of [null, undefined, '', 'other']) {
+    const m = model({ ...profile, affiliation });
+    assert.equal(m.complete, false);
+    assert.equal(m.affiliation, affiliation ?? null);
+  }
+
+  const { affiliation, ...legacy } = profile;
+  assert.equal(model(legacy).complete, false);
+  assert.equal(model(legacy).affiliation, null);
+  assert.equal(model({ ...profile, full_name: ' ' }).complete, false);
+  assert.equal(model({ ...profile, affiliation: 'student', organization: ' ' }).complete, false);
 });

@@ -357,8 +357,15 @@ export function renderProfile(model, actions) {
 
   find('#profile-avatar').textContent = initials(model.name);
   find('#profile-name').textContent = text(model.name, 'Нэрээ оруулна уу');
+  const affiliation = model.affiliation === 'company' ? 'Компани'
+    : model.affiliation === 'student' ? 'Оюутан' : 'Төрөл сонгоогүй';
+  const organizationFallback = model.affiliation === 'student'
+    ? 'Сургуулийн нэр оруулаагүй'
+    : model.affiliation === 'company'
+      ? 'Компанийн нэр оруулаагүй'
+      : 'Компани эсвэл сургуулийн нэр оруулаагүй';
   find('#profile-organization').textContent =
-    text(model.organization, 'Байгууллага оруулаагүй');
+    `${affiliation} · ${text(model.organization, organizationFallback)}`;
   find('#profile-email').textContent = text(model.email, 'Имэйл бүртгэгдээгүй');
   find('#profile-role').textContent = ROLE_MN[model.role] ?? 'Тодорхойгүй эрх';
   find('#profile-since').textContent =

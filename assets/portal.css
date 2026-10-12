@@ -737,3 +737,77 @@ code.mono {
 #audit td:nth-child(2) {
   white-space: nowrap;
 }
+
+/* Профайлын төрөл: native radio нь Tab, сум, Space удирдлагатай. */
+.profile-affiliation {
+  min-width: 0;
+  margin: 0;
+  padding: 0;
+  border: 0;
+}
+
+.profile-affiliation legend {
+  margin-bottom: 8px;
+  color: var(--ink-soft);
+  font-size: .92rem;
+}
+
+.profile-affiliation .row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.form .profile-affiliation label {
+  display: flex;
+  flex: 1 1 190px;
+  align-items: center;
+  gap: 10px;
+  min-height: 46px;
+  padding: 10px 12px;
+  border: 1px solid var(--line-strong);
+  border-radius: 11px;
+  background: var(--bg-soft);
+  cursor: pointer;
+}
+
+.form .profile-affiliation input[type="radio"] {
+  flex: 0 0 auto;
+  width: 18px;
+  height: 18px;
+  min-height: 0;
+  margin: 0;
+  padding: 0;
+  accent-color: var(--accent);
+}
+
+.profile-affiliation label:has(input:checked) {
+  border-color: var(--accent);
+  background: var(--accent-soft);
+  color: var(--accent);
+}
+
+#code-destination {
+  margin: 0;
+  overflow-wrap: anywhere;
+}
+
+#code-form .row {
+  flex-wrap: wrap;
+}
+
+#code-form .btn {
+  max-width: 100%;
+  white-space: normal;
+}
+
+#code-resend,
+#signin-form button[type="submit"] {
+  font-variant-numeric: tabular-nums;
+}
+
+#code-form .btn:disabled,
+#signin-form button[type="submit"]:disabled {
+  opacity: .55;
+  cursor: not-allowed;
+}

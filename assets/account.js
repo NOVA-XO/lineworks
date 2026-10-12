@@ -24,7 +24,9 @@ async function start() {
 
   $('#signin-form').addEventListener('submit', signInWithEmail);
   $('#code-form').addEventListener('submit', verifyCode);
+  $('#code-resend').addEventListener('click', () => sendCode(true));
   $('#code-back').addEventListener('click', () => {
+    if (codeSending || codeVerifying) return;
     showCodeStep(false);
     $('#signin-email').focus();
   });
@@ -68,12 +70,16 @@ async function render() {
 
   $('#who').textContent = `Нэвтэрсэн: ${session.user.email ?? ''}`;
   const { data: profile, error } = await supabase.from('profiles')
-    .select('full_name, organization, role, created_at').eq('id', session.user.id).single();
+    .select('full_name, organization, affiliation, role, created_at').eq('id', session.user.id).single();
   if (run !== renderRun) return;
   if (error) { say($('#profile-msg'), explain(error), 'err'); return; }
   myProfile = { ...profile, email: session.user.email ?? '' };
-  $('#full-name').value = profile.full_name;
-  $('#organization').value = profile.organization;
+  $('#full-name').value = profile.full_name ?? '';
+  $('#organization').value = profile.organization ?? '';
+  for (const radio of $('#profile-form').querySelectorAll('[name="affiliation"]')) {
+    radio.checked = radio.value === profile.affiliation;
+  }
+  syncOrganization();
   $('#who').textContent = `Нэвтэрсэн: ${session.user.email ?? ''}`;
   if (profile.role !== 'user') {
     $('#who').append(' · ', el('a', { href: 'admin.html' }, 'Удирдлагын хуудас'));
@@ -106,21 +112,126 @@ function openRequest(machineId, renewalLicenceId) {
   (renewal ? $('#renews') : $('#machine')).focus({ preventScroll: true });
 }
 
+function selectedAffiliation() {
+  const value = $('#profile-form [name="affiliation"]:checked')?.value;
+  return value === 'company' || value === 'student' ? value : null;
+}
+
+function syncOrganization() {
+  const affiliation = selectedAffiliation();
+  const company = affiliation === 'company';
+  $('#organization-label').textContent = affiliation
+    ? company ? 'Компанийн нэр' : 'Сургуулийн нэр'
+    : 'Компани эсвэл сургуулийн нэр';
+  $('#organization').disabled = !affiliation;
+  $('#organization').placeholder = affiliation
+    ? company ? 'Жишээ: Zenith Solar ХХК' : 'Жишээ: ШУТИС'
+    : 'Эхлээд төрлөө сонгоно уу';
+  $('#organization').autocomplete = company ? 'organization' : 'off';
+  show($('#organization-hint'), !affiliation);
+}
+
 function updateRequestGate() {
-  const ready = $('#full-name').value.trim() && $('#organization').value.trim();
+  const fullName = $('#full-name').value.trim();
+  const organization = $('#organization').value.trim();
+  const affiliation = selectedAffiliation();
+  const ready = Boolean(
+    fullName && organization && affiliation && myProfile
+    && myProfile.full_name === fullName
+    && myProfile.organization === organization
+    && myProfile.affiliation === affiliation
+  );
   $('#request-submit').disabled = !ready;
-  if (!ready) { say($('#request-msg'), 'Эхлээд нэр, байгууллагаа бөглөж хадгална уу.'); }
+  if (!ready) {
+    say($('#request-msg'), 'Эхлээд нэр, төрлөө сонгож, компани эсвэл сургуулийн нэрээ бөглөж хадгална уу.');
+  }
+  return ready;
+}
+
+let codeEmail = '';
+let codeSending = false;
+let codeVerifying = false;
+let codeRetryAt = 0;
+let codeTimer = null;
+
+function syncCodeControls() {
+  const seconds = Math.max(0, Math.ceil((codeRetryAt - Date.now()) / 1000));
+  const busy = codeSending || codeVerifying;
+  const resend = $('#code-resend');
+  const submit = $('#signin-form button[type="submit"]');
+
+  resend.disabled = busy || seconds > 0 || !codeEmail;
+  resend.textContent = codeSending ? 'Илгээж байна…'
+    : seconds > 0 ? `Код дахин илгээх (${seconds} сек)` : 'Код дахин илгээх';
+  submit.disabled = busy || seconds > 0;
+  submit.textContent = codeSending ? 'Илгээж байна…'
+    : seconds > 0 ? `Нэвтрэх код илгээх (${seconds} сек)` : 'Нэвтрэх код илгээх';
+  $('#code-back').disabled = busy;
+  $('#signin-email').disabled = busy;
+  $('#code-form button[type="submit"]').disabled = busy;
+  $('#signin-code').readOnly = busy;
+
+  if (!seconds && codeTimer !== null) {
+    clearInterval(codeTimer);
+    codeTimer = null;
+  }
+}
+
+function startCodeCooldown() {
+  codeRetryAt = Date.now() + 60000;
+  if (codeTimer !== null) clearInterval(codeTimer);
+  codeTimer = setInterval(syncCodeControls, 250);
+  syncCodeControls();
+}
+
+function isCodeRateLimit(error) {
+  return error?.code === 'over_email_send_rate_limit'
+    || Number(error?.status) === 429
+    || /For security purposes/i.test(error?.message ?? '');
 }
 
 async function signInWithEmail(event) {
   event.preventDefault();
-  const email = $('#signin-email').value.trim();
-  say($('#signin-msg'), 'Илгээж байна…');
-  const { error } = await supabase.auth.signInWithOtp({ email, options: { emailRedirectTo: here + location.search } });
-  if (error) { say($('#signin-msg'), explain(error), 'err'); return; }
-  say($('#signin-msg'), '');
-  showCodeStep(true);
-  say($('#code-msg'), `Код ${email} хаяг руу илгээгдлээ. Ирэхгүй бол «Спам» хавтсаа шалгана уу.`, 'ok');
+  await sendCode(false);
+}
+
+async function sendCode(resend) {
+  if (codeSending || codeVerifying || Date.now() < codeRetryAt) return;
+  if (!resend && !$('#signin-form').reportValidity()) return;
+  const email = resend ? codeEmail : $('#signin-email').value.trim();
+  if (!email) return;
+
+  const message = $(resend ? '#code-msg' : '#signin-msg');
+  codeSending = true;
+  syncCodeControls();
+  say(message, 'Илгээж байна…');
+
+  try {
+    const { error } = await supabase.auth.signInWithOtp({
+      email,
+      options: { emailRedirectTo: here + location.search },
+    });
+    if (error) throw error;
+    codeEmail = email;
+    startCodeCooldown();
+    say($('#signin-msg'), '');
+    showCodeStep(true);
+    say($('#code-msg'),
+      `${resend ? 'Шинэ код' : 'Код'} илгээгдлээ. Ирэхгүй бол «Спам» хавтсаа шалгана уу. Дахин илгээхэд 60 секунд хүлээнэ үү.`,
+      'ok');
+  } catch (error) {
+    if (isCodeRateLimit(error)) {
+      startCodeCooldown();
+      say(message,
+        'Код илгээх хязгаарт хүрлээ. 60 секунд хүлээгээд дахин оролдоно уу. Хязгаар хэвээр байвал хэсэг хугацааны дараа оролдоно уу.',
+        'err');
+    } else {
+      say(message, explain(error) || 'Код илгээж чадсангүй. Дахин оролдоно уу.', 'err');
+    }
+  } finally {
+    codeSending = false;
+    syncCodeControls();
+  }
 }
 
 /* Имэйлийн код (2026-10-08, эзэн: Autodesk-ийн OTP имэйл шиг). Холбоос нь өөр төхөөрөмж
@@ -128,50 +239,83 @@ async function signInWithEmail(event) {
 function showCodeStep(on) {
   show($('#signin-form'), !on);
   show($('#code-form'), on);
+  $('#code-destination').textContent = on ? `${codeEmail} хаяг руу илгээсэн` : '';
   $('#signin-code').value = '';
   say($('#code-msg'), '');
+  syncCodeControls();
   if (on) { $('#signin-code').focus(); }
 }
 
 async function verifyCode(event) {
   event.preventDefault();
-  const email = $('#signin-email').value.trim();
+  if (codeSending || codeVerifying || !codeEmail) return;
+  const email = codeEmail;
   const token = $('#signin-code').value.replace(/\D/g, '');
-  if (token.length < 6) { say($('#code-msg'), 'Имэйлээр ирсэн кодыг бүтнээр нь оруулна уу.', 'err'); return; }
-  say($('#code-msg'), 'Шалгаж байна…');
-  const { error } = await supabase.auth.verifyOtp({ email, token, type: 'email' });
-  if (error) {
-    say($('#code-msg'), /expired|invalid/i.test(error.message) ? 'Код буруу эсвэл хугацаа нь дууссан. Шинэ код авна уу.' : explain(error), 'err');
+  if (token.length < 6) {
+    say($('#code-msg'), 'Имэйлээр ирсэн кодыг бүтнээр нь оруулна уу.', 'err');
     return;
   }
-  showCodeStep(false);
+
+  codeVerifying = true;
+  syncCodeControls();
+  say($('#code-msg'), 'Шалгаж байна…');
+  try {
+    const { error } = await supabase.auth.verifyOtp({ email, token, type: 'email' });
+    if (error) throw error;
+    showCodeStep(false);
+  } catch (error) {
+    say($('#code-msg'), /expired|invalid/i.test(error?.message ?? '')
+      ? 'Код буруу эсвэл хугацаа нь дууссан. Шинэ код авна уу.'
+      : explain(error), 'err');
+  } finally {
+    codeVerifying = false;
+    syncCodeControls();
+  }
 }
 
 async function saveProfile(event) {
   event.preventDefault();
-  const { data: { user }, error: authError } = await supabase.auth.getUser();
-  if (authError || !user) {
-    say($('#profile-msg'), authError
-      ? explain(authError)
-      : 'Нэвтрэлтийн хугацаа дууссан. Дахин нэвтэрнэ үү.', 'err');
+  const button = $('#profile-form button[type="submit"]');
+  if (button.disabled || !$('#profile-form').reportValidity()) return;
+  const values = {
+    full_name: $('#full-name').value.trim(),
+    organization: $('#organization').value.trim(),
+    affiliation: selectedAffiliation(),
+  };
+  if (!values.full_name || !values.organization || !values.affiliation) {
+    say($('#profile-msg'), 'Нэр, төрлөө сонгож, компани эсвэл сургуулийн нэрээ бөглөнө үү.', 'err');
     return;
   }
-  const { error } = await supabase.from('profiles')
-    .update({ full_name: $('#full-name').value.trim(), organization: $('#organization').value.trim() })
-    .eq('id', user.id);
-  say($('#profile-msg'), error ? explain(error) : 'Хадгаллаа.', error ? 'err' : 'ok');
-  if (!error) {
+
+  button.disabled = true;
+  $('#request-submit').disabled = true;
+  say($('#profile-msg'), 'Хадгалж байна…');
+  try {
+    const { data: { user }, error: authError } = await supabase.auth.getUser();
+    if (authError) throw authError;
+    if (!user) throw new Error('Нэвтрэлтийн хугацаа дууссан. Дахин нэвтэрнэ үү.');
+
+    const { data, error } = await supabase.from('profiles')
+      .update(values)
+      .eq('id', user.id)
+      .select('full_name, organization, affiliation, role, created_at')
+      .single();
+    if (error) throw error;
+    myProfile = { ...data, email: user.email ?? '' };
+    say($('#profile-msg'), 'Хадгаллаа.', 'ok');
     say($('#request-msg'), '');
     updateRequestGate();
-    if (myProfile) {
-      myProfile = { ...myProfile, full_name: $('#full-name').value.trim(), organization: $('#organization').value.trim() };
-      showProfile();
-    }
+    showProfile();
+  } catch (error) {
+    say($('#profile-msg'), explain(error), 'err');
+  } finally {
+    button.disabled = false;
   }
 }
 
 async function sendRequest(event) {
   event.preventDefault();
+  if ($('#request-submit').disabled || !updateRequestGate()) return;
   const machine = machineDigits($('#machine').value);
   if (machine.length !== 16) {
     say($('#request-msg'), 'Компьютерийн дугаар 16 оронтой (жишээ нь 3F2A-91C0-7B4E-D218) байх ёстой.', 'err');
@@ -251,4 +395,10 @@ async function downloadInstaller() {
 
 $('#full-name').addEventListener('input', () => { $('#request-submit').disabled = true; });
 $('#organization').addEventListener('input', () => { $('#request-submit').disabled = true; });
+for (const radio of $('#profile-form').querySelectorAll('[name="affiliation"]')) {
+  radio.addEventListener('input', () => {
+    syncOrganization();
+    $('#request-submit').disabled = true;
+  });
+}
 start();

@@ -102,10 +102,14 @@ export function profileModel({ profile, email, licences, requests, today, curren
   return {
     name: profile.full_name,
     organization: profile.organization,
+    affiliation: profile.affiliation ?? null,
     email,
     role: profile.role,
     since: String(profile.created_at ?? '').slice(0, 10),
-    complete: Boolean(profile.full_name?.trim() && profile.organization?.trim()),
+    complete: Boolean(
+      profile.full_name?.trim() && profile.organization?.trim()
+      && (profile.affiliation === 'company' || profile.affiliation === 'student')
+    ),
     primary,
     licences: lics,
     activeCount: lics.filter((l) => usable(l.state)).length,

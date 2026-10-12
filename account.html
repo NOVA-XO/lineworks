@@ -110,14 +110,16 @@ if (window.top === window.self) {
         <p id="signin-msg" class="msg" role="status"></p>
       </form>
       <form id="code-form" class="form" hidden>
+        <p id="code-destination" class="muted"></p>
         <label>Имэйлээр ирсэн код
-          <input id="signin-code" class="mono" inputmode="numeric" autocomplete="one-time-code" maxlength="10" required spellcheck="false">
+          <input id="signin-code" class="mono" inputmode="numeric" autocomplete="one-time-code" maxlength="10" required spellcheck="false" aria-describedby="code-destination">
         </label>
         <div class="row">
           <button class="btn btn-sun" type="submit">Нэвтрэх</button>
+          <button class="btn btn-line" type="button" id="code-resend">Код дахин илгээх</button>
           <button class="btn btn-line" type="button" id="code-back">Өөр имэйл</button>
         </div>
-        <p id="code-msg" class="msg" role="status"></p>
+        <p id="code-msg" class="msg" role="status" aria-live="polite" aria-atomic="true"></p>
       </form>
     </section>
 
@@ -153,7 +155,7 @@ if (window.top === window.self) {
         </div>
 
         <p id="profile-required" class="note warn" hidden>
-          Лиценз хүсэхийн өмнө бөглөнө үү. Нэр, байгууллагаа оруулаад хадгална уу.
+          Лиценз хүсэхийн өмнө нэр, төрлөө сонгож, компани эсвэл сургуулийн нэрээ оруулаад хадгална уу.
         </p>
 
         <div id="profile-editor" class="profile-editor" hidden>
@@ -161,9 +163,24 @@ if (window.top === window.self) {
             <label for="full-name">Овог, нэр
               <input id="full-name" maxlength="80" required autocomplete="name">
             </label>
-            <label for="organization">Байгууллага
-              <input id="organization" maxlength="80" required autocomplete="organization">
+            <fieldset class="profile-affiliation">
+              <legend>Та</legend>
+              <div class="row">
+                <label>
+                  <input type="radio" name="affiliation" value="company" required>
+                  <span>Компанид ажилладаг</span>
+                </label>
+                <label>
+                  <input type="radio" name="affiliation" value="student" required>
+                  <span>Оюутан</span>
+                </label>
+              </div>
+            </fieldset>
+            <label for="organization">
+              <span id="organization-label">Компани эсвэл сургуулийн нэр</span>
+              <input id="organization" maxlength="80" required autocomplete="off" placeholder="Эхлээд төрлөө сонгоно уу" aria-describedby="organization-hint" disabled>
             </label>
+            <p id="organization-hint" class="profile-muted">Дээрх хоёр төрлөөс сонгоод нэрээ оруулна уу.</p>
             <div class="row">
               <button class="btn btn-line" type="submit">Хадгалах</button>
             </div>

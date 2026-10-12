@@ -242,7 +242,7 @@ async function reject(id) {
 
 async function loadUsers() {
   const { data, error } = await supabase.from('profiles')
-    .select('id, email, full_name, organization, role, created_at').order('created_at', { ascending: false });
+    .select('id, email, full_name, organization, affiliation, role, created_at').order('created_at', { ascending: false });
   const body = $('#users');
   body.replaceChildren();
   if (error) { say($('#users-msg'), explain(error), 'err'); return; }
@@ -253,7 +253,9 @@ async function loadUsers() {
         ...['user', 'viewer', 'admin'].map((r) => el('option', { value: r, selected: r === p.role }, ROLE_MN[r])));
     }
     body.append(el('tr', {},
-      el('td', {}, p.email), el('td', {}, p.full_name), el('td', {}, p.organization),
+      el('td', {}, p.email), el('td', {}, p.full_name),
+      el('td', {}, p.affiliation === 'company' ? 'Компани' : p.affiliation === 'student' ? 'Оюутан' : '—'),
+      el('td', {}, p.organization),
       el('td', {}, date(p.created_at)), el('td', {}, roleCell)));
   }
 }
