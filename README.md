@@ -114,8 +114,16 @@ account.html: «Миний лицензүүд» → «Хуулах» / «.lic т
     «Нэвтрэх код — Zenith LineWorks» ба «Бүртгэлээ баталгаажуулна уу — Zenith LineWorks».
   - **OTP тохиргоо (M2):** Authentication → Sign In / Providers → Email → **OTP length 6**,
     **OTP expiration 900** секунд (загвар «15 минут» гэж бичсэн).
-  - Илгээгч нь одоогоор Supabase-ийн өөрийн хаяг (цагт 2 имэйл). DNS Cloudflare-т шилжсэний
-    дараа `noreply@zenithsolar.mn`-ээс илгээхээр өөрийн SMTP (Resend г.м.) холбоно.
+  - **Илгээгч (түр, 2026-10-13):** өөрийн SMTP — `Zenith LineWorks <zenith.lineworks@gmail.com>`,
+    `smtp.gmail.com:587`, нууц үг нь Gmail-ийн **App password** (Gmail 2-Step Verification шаардана),
+    хэрэглэгч бүрт 60 с, цагт 30 имэйл. Supabase өөрийн SMTP-гүй үед **загварыг үл тоомсорлож**
+    анхдагч англи «Your sign-in link»-ийг илгээдэг.
+  - ⚠️ **Урхи:** Supabase-д хоёр байгууллага бий — **Zenith** ба **irodori**, хоёулаа
+    «NOVA-XO's Project» нэртэй төсөлтэй. LineWorks нь **Zenith / `yfusttksvhdssjizxebc`**.
+    Самбарт тохиргоо хийхийн өмнө хаягийн мөрөнд энэ ref байгааг шалга (2026-10-13-нд SMTP
+    санамсаргүй irodori-д тохируулагдаж, имэйл анхдагчаар ирсээр байсан).
+  - DNS Cloudflare-т шилжсэний дараа `noreply@zenithsolar.mn`-ээс илгээхээр транзакцын SMTP
+    (Resend г.м.) руу шилжүүлж, Gmail-ийн App password-ийг хүчингүй болгоно.
 
 ### Supabase-ийг нэг удаа тохируулах
 
