@@ -5,6 +5,7 @@
 // хакерддвал админы 2 шаттай сесс дотор код ажиллах эрсдэлтэй байсан. Шинэчлэх заавар README-д.
 import { createClient } from './vendor/supabase-js-2.117.3.esm.js';
 import { SUPABASE_URL, SUPABASE_ANON_KEY } from './portal-config.js';
+import { licenceState } from './profile-model.js';
 
 export const configured = !SUPABASE_URL.startsWith('{{');
 
@@ -48,6 +49,7 @@ export function daysLeft(until) {
 export const STATUS_MN = {
   pending: 'Хүлээгдэж буй', approved: 'Батлагдсан', rejected: 'Татгалзсан',
   active: 'Идэвхтэй', revoked: 'Цуцлагдсан',
+  expired: 'Хугацаа дууссан', expiring: 'Дуусах дөхсөн', future: 'Хүчинтэй болоогүй',
 };
 export const KIND_MN = { new: 'Шинэ', renewal: 'Сунгалт' };
 export const EDITION_MN = { trial: 'Туршилтын', subscription: 'Захиалгат', prime: 'Prime', full: 'Бүрэн' };
@@ -72,14 +74,36 @@ export const statusPill = (status) => el('span', { class: `status ${status}` }, 
 /** Сангийн алдааг хэрэглэгчид ойлгогдох мөр болгоно. Триггерийн мессеж аль хэдийн монголоор. */
 export function explain(error) {
   if (!error) { return ''; }
-  const text = error.message || String(error);
-  if (/row-level security|permission denied/i.test(text)) { return 'Энэ үйлдэлд эрх хүрэхгүй байна.'; }
-  if (/machine_id_check/.test(text)) { return 'Компьютерийн дугаар 16 оронтой (жишээ нь 3F2A-91C0-7B4E-D218) байх ёстой.'; }
-  if (/JWT|expired/i.test(text)) { return 'Нэвтрэлтийн хугацаа дууссан. Дахин нэвтэрнэ үү.'; }
-  if (/Error sending .*email/i.test(text)) {
-    return 'Имэйл илгээж чадсангүй. Хэдэн минутын дараа дахин оролдоно уу; асуудал үргэлжилвэл бидэнтэй холбогдоно уу.';
+  const text = String(error.message ?? error);
+  const status = Number(error.status ?? error.context?.status);
+  if (status === 429 || error.code === 'over_email_send_rate_limit' || /For security purposes/i.test(text)) {
+    return 'Хэт олон оролдлого хийсэн байна. Түр хүлээгээд дахин оролдоно уу.';
   }
-  return text;
+  if (navigator.onLine === false || /failed to fetch|fetch failed|networkerror|load failed/i.test(text)) {
+    return 'Сервертэй холбогдож чадсангүй. Интернэт холболтоо шалгана уу.';
+  }
+  if (status === 401 || /JWT|refresh.?token|Auth session missing/i.test(text)) {
+    window.dispatchEvent(new Event('portal-session-expired'));
+    return 'Нэвтрэлт хүчингүй болсон байна. Дахин нэвтэрнэ үү.';
+  }
+  if (/row-level security|permission denied/i.test(text)) {
+    return 'Энэ үйлдэлд эрх хүрэхгүй байна. Эрх өөрчлөгдсөн бол хуудсаа шинэчилнэ үү.';
+  }
+  if (/machine_id_check/.test(text)) {
+    return 'Компьютерийн дугаар 16 оронтой байх ёстой. Жишээ: 3F2A-91C0-7B4E-D218.';
+  }
+  if (/expired|invalid.*(?:otp|code|token)|(?:otp|code|token).*invalid/i.test(text)) {
+    return 'Код буруу эсвэл хугацаа нь дууссан байна. Кодоо шалгах эсвэл шинэ код авна уу.';
+  }
+  if (/Error sending .*email/i.test(text)) {
+    return 'Имэйл илгээж чадсангүй. Хэдэн минутын дараа дахин оролдоно уу.';
+  }
+  if (status >= 500) {
+    return 'Сервер үйлдлийг дуусгаж чадсангүй. Түр хүлээгээд мэдээллээ шинэчилнэ үү.';
+  }
+  // Триггер ба Edge Function-ийн мессеж аль хэдийн монголоор — тэр чигээр нь.
+  if (/[А-Яа-яӨөҮүЁё]/u.test(text)) { return text; }
+  return 'Үйлдлийг дуусгаж чадсангүй. Мэдээллээ шинэчлээд дахин шалгана уу.';
 }
 
 /** Толгойн цэсэнд нэвтэрсэн хэрэглэгч ба «Гарах»-ыг харуулна (дүрс HTML-д тогтмол, зөвхөн бичиг солигдоно). */
@@ -139,7 +163,9 @@ export async function wireNav() {
             signingOut = false;
             signout.removeAttribute('aria-disabled');
             signout.removeAttribute('aria-busy');
-            window.alert('Гарч чадсангүй. Дахин оролдоно уу.');
+            const message = $('#portal-msg');
+            if (message) say(message, 'Гарч чадсангүй. Холболтоо шалгаад дахин оролдоно уу.', 'err');
+            else window.alert('Гарч чадсангүй. Дахин оролдоно уу.');
           }
         },
       },
@@ -157,7 +183,7 @@ export async function copy(text, messageNode) {
     await navigator.clipboard.writeText(text);
     if (messageNode) { say(messageNode, 'Хуулав.', 'ok'); }
   } catch {
-    if (messageNode) { say(messageNode, 'Хуулж чадсангүй — гараар сонгож хуулна уу.', 'err'); }
+    if (messageNode) { say(messageNode, 'Хуулж чадсангүй. Лицензийг «.lic татах» товчоор файлаар авна уу.', 'err'); }
   }
 }
 
@@ -168,4 +194,81 @@ export function download(name, text) {
   link.click();
   link.remove();
   setTimeout(() => URL.revokeObjectURL(url), 1000);
+}
+
+/* --------------------------------------------- захын төлвүүд (Astra, 2026-10-13) -- */
+
+/** Хүснэгтийн төлөв огнооноос: хугацаа дууссан, дуусах дөхсөн, хүчинтэй болоогүй. */
+export function licencePill(licence) {
+  const today = new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Ulaanbaatar' }).format(new Date());
+  return statusPill(licenceState(licence, today));
+}
+
+/** Нийтлэг мэдэгдэл: сүлжээ тасрах, «Мэдээлэл шинэчлэх» товч. */
+export function initPortalUX() {
+  const network = $('#network-msg');
+  if (network) {
+    const offline = () => say(network,
+      'Интернэт холболтгүй байна. Холболтоо сэргээгээд мэдээллээ шинэчилнэ үү.', 'err');
+    window.addEventListener('offline', offline);
+    window.addEventListener('online', () => say(network, 'Интернэт холболт сэргэлээ. Мэдээллээ шинэчилж шалгана уу.'));
+    if (navigator.onLine === false) offline();
+  }
+  $('#portal-refresh')?.addEventListener('click', () => location.reload());
+}
+
+const busyRoots = new WeakSet();
+
+/** Үйлдлийн турш хэсгийн товч, талбарыг түгжинэ — давхар дарахаас. Клиентийн хамгаалалт л. */
+export async function busyAction(root, message, task) {
+  if (!root || busyRoots.has(root)) return false;
+  busyRoots.add(root);
+  root.setAttribute('aria-busy', 'true');
+  const controls = [...root.querySelectorAll('button, input, select, textarea')];
+  const previous = controls.map((node) => node.disabled);
+  controls.forEach((node) => { node.disabled = true; });
+  try {
+    await task();
+    return true;
+  } catch (error) {
+    say(message, explain(error), 'err');
+    return false;
+  } finally {
+    controls.forEach((node, index) => { if (node.isConnected) node.disabled = previous[index]; });
+    root.removeAttribute('aria-busy');
+    busyRoots.delete(root);
+  }
+}
+
+/**
+ * Хүснэгт ачаалагчийг ачаалж буй / хоосон / алдаа төлөвтэй болгоно. Хуучирсан хариуг
+ * (дараагийн ачаалалт эсвэл гарсны дараа ирсэн) үл тооно. Амжилттай бол true.
+ */
+export function tableLoader(load, selector, messageSelector, columns, epoch) {
+  let sequence = 0;
+  return async (...args) => {
+    const ticket = ++sequence;
+    const version = epoch();
+    const current = () => ticket === sequence && version === epoch();
+    const body = $(selector);
+    const message = $(messageSelector);
+    const row = (text) => el('tr', {}, el('td', { colspan: columns, class: 'muted' }, text));
+
+    body.setAttribute('aria-busy', 'true');
+    body.replaceChildren(row('Мэдээлэл ачаалж байна…'));
+    try {
+      await load(...args, current);
+      if (!current()) return false;
+      if (!body.children.length) body.append(row('Одоогоор бүртгэл алга.'));
+      if (message?.classList.contains('err')) say(message, '');
+      return true;
+    } catch (error) {
+      if (!current()) return false;
+      body.replaceChildren(row('Мэдээллийг ачаалж чадсангүй.'));
+      if (message) say(message, explain(error), 'err');
+      return false;
+    } finally {
+      if (ticket === sequence) body.removeAttribute('aria-busy');
+    }
+  };
 }

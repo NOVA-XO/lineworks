@@ -811,3 +811,61 @@ code.mono {
   opacity: .55;
   cursor: not-allowed;
 }
+
+/* ------------------------------------------ захын төлвүүд (Astra, 2026-10-13) -- */
+
+/* Мэдэгдэл байхгүй үед хүрээ харагдахгүй; live бүс DOM-д үлдэж дэлгэц уншигч зарлана. */
+.portal-feedback {
+  margin-bottom: 24px;
+  padding: 14px 16px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  background: var(--bg-soft);
+  color: var(--ink);
+}
+.portal-feedback:not(:has(.msg:not(:empty))) {
+  padding: 0;
+  margin: 0;
+  border: 0;
+  background: none;
+}
+.portal-feedback .msg { margin: 0; }
+.portal-feedback .msg:empty { min-height: 0; }
+.portal-feedback .msg + .msg:not(:empty) { margin-top: 8px; }
+.portal-feedback #portal-refresh { display: none; margin-top: 12px; }
+.portal-feedback:has(.msg.err) #portal-refresh { display: inline-flex; }
+
+.portal button:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+}
+
+.portal :is(button, summary):focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 3px;
+}
+
+.portal .actions .trial-days { width: 5.5em; }
+
+.privacy-note {
+  margin-top: 24px;
+  color: var(--ink-soft);
+  overflow-wrap: anywhere;
+}
+.privacy-note summary {
+  min-height: 44px;
+  padding-block: 10px;
+  color: var(--ink);
+  cursor: pointer;
+}
+.privacy-note li + li { margin-top: 8px; }
+
+.privacy-note > h2 { font-size: 1.15rem; margin-bottom: 12px; }
+
+/* Нэвтрэх / MFA хэсэг төвд нарийн байх үед мэдэгдэл ба тайлбар ижил өргөнтэй. */
+main:has(#signed-out:not([hidden])) :is(.portal-feedback, .privacy-note),
+main:has(#mfa:not([hidden])) .portal-feedback {
+  max-width: 760px;
+  margin-inline: auto;
+}
+

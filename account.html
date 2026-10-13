@@ -86,9 +86,15 @@ if (window.top === window.self) {
       <p class="note">Нэвтрэх болон лиценз хүсэхэд хөтчийн JavaScript шаардлагатай.</p>
     </noscript>
 
+    <div class="portal-feedback">
+      <p id="portal-msg" class="msg" role="status">Нэвтрэлтийг шалгаж байна…</p>
+      <p id="network-msg" class="msg" role="status"></p>
+      <button id="portal-refresh" class="btn btn-line" type="button">Мэдээлэл шинэчлэх</button>
+    </div>
+
     <div id="not-configured" class="note warn" hidden>
       <strong>Портал хараахан тохируулагдаагүй байна.</strong>
-      Лиценз хүсэх бол <a href="mailto:Superiornova068@gmail.com">Superiornova068@gmail.com</a> хаяг руу бичнэ үү.
+      Лиценз хүсэх бол <a href="mailto:zenithsolar.contact@gmail.com">zenithsolar.contact@gmail.com</a> хаяг руу бичнэ үү.
     </div>
 
     <!-- Нэвтрээгүй -->
@@ -255,6 +261,7 @@ if (window.top === window.self) {
           <thead><tr><th>Огноо</th><th>Төрөл</th><th>Компьютер</th><th>Төлөв</th><th>Хариу</th></tr></thead>
           <tbody id="requests"></tbody>
         </table></div>
+        <p id="requests-msg" class="msg" role="status"></p>
       </section>
 
       <section class="panel">
@@ -264,6 +271,17 @@ if (window.top === window.self) {
         <p id="installer-msg" class="msg" role="status"></p>
       </section>
     </div>
+
+    <section class="panel privacy-note" aria-labelledby="privacy-title">
+      <h2 id="privacy-title">Таны мэдээлэл</h2>
+      <ul>
+        <li>Нэр, харьяалал (компани эсвэл оюутан), байгууллага эсвэл сургууль, имэйл, компьютерийн дугаар, хүсэлт ба лицензийг хадгална.</li>
+        <li>Мэдээлэл Zenith Solar-ын Supabase өгөгдлийн санд хадгалагдаж, зөвхөн лиценз олгоход ашиглагдана.</li>
+        <li>Үүнийг зөвхөн та болон Zenith Solar-ын эрх бүхий ажилтан харна.</li>
+        <li>Zenith LineWorks програм таны зургийн мэдээллийг хаашаа ч илгээдэггүй.</li>
+        <li>Мэдээллээ устгуулах бол <a href="mailto:zenithsolar.contact@gmail.com">zenithsolar.contact@gmail.com</a> хаягаар хүсэлт илгээнэ үү.</li>
+      </ul>
+    </section>
   </div>
 </main>
 
@@ -279,7 +297,7 @@ if (window.top === window.self) {
       <a href="download.html">Татах</a>
       <a href="license.html">Лиценз</a>
       <a href="https://github.com/NOVA-XO/lineworks/issues">Санал, гомдол</a>
-      <a href="mailto:Superiornova068@gmail.com">Холбоо барих</a>
+      <a href="mailto:zenithsolar.contact@gmail.com">Холбоо барих</a>
     </nav>
     <div class="foot-bottom">
       Zenith LineWorks 0.1.0 · Бүх эрх хуулиар хамгаалагдсан

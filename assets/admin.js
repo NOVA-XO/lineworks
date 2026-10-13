@@ -1,35 +1,77 @@
 import {
   supabase, configured, $, el, show, say, explain, wireNav,
   formatMachine, date, statusPill, KIND_MN, EDITION_MN, ROLE_MN, PERPETUAL_UNTIL,
+  initPortalUX, busyAction, tableLoader, licencePill,
 } from './portal.js';
 
 let me = null;        // { id, role }
 let canWrite = false; // admin AND aal2 — the database enforces the same rule
 let primeLeft = null;  // Prime seats left of 10; the database enforces the cap
 
+let adminEpoch = 0; // гарах, сесс дуусах бүрд нэмэгдэнэ — хуучирсан хариу юу ч бичихгүй
+
 async function loadPrimeLeft() {
-  const { data, error } = await supabase.rpc('prime_remaining');
-  primeLeft = error ? null : data;
-  $('#prime-left').textContent = primeLeft === null ? '' : `Prime: ${primeLeft} / 10 үлдсэн`;
+  const run = adminEpoch;
+  try {
+    const { data, error } = await supabase.rpc('prime_remaining');
+    if (run !== adminEpoch) return;
+    primeLeft = error ? null : data;
+  } catch {
+    if (run !== adminEpoch) return;
+    primeLeft = null;
+  }
+  $('#prime-left').textContent = primeLeft === null
+    ? 'Prime лицензийн үлдэгдлийг уншиж чадсангүй.'
+    : `Prime: ${primeLeft} / 10 үлдсэн`;
+}
+
+/* Захын төлвүүд (Astra, 2026-10-13): сесс дуусах, гарах, хэрэглэгч солигдох, aal2 алдагдах. */
+function closeConsole() {
+  ++adminEpoch;
+  canWrite = false;
+  me = null;
+  factorId = null;
+  show($('#console'), false);
+  show($('#mfa'), false);
+  $('#mfa-qr').removeAttribute('src');
+  $('#mfa-secret').textContent = '';
+  $('#mfa-code').value = '';
+  show($('#gate'), true);
+  $('#gate').replaceChildren(
+    'Нэвтрэлт эсвэл баталгаажуулалт хүчингүй болсон байна. ',
+    el('a', { href: 'account.html' }, 'Дахин нэвтрэх'),
+    ' эсвэл мэдээллээ шинэчилнэ үү.',
+  );
 }
 
 async function start() {
+  const run = adminEpoch;
   if (!configured) { $('#gate').textContent = 'Портал хараахан тохируулагдаагүй байна.'; return; }
   const session = await wireNav();
+  if (run !== adminEpoch) return;
   if (!session) {
     $('#gate').replaceChildren('Эхлээд ', el('a', { href: 'account.html' }, 'нэвтэрнэ'), ' үү.');
     return;
   }
   const { data: profile, error: profileError } = await supabase.from('profiles').select('id, role').eq('id', session.user.id).single();
+  if (run !== adminEpoch) return;
   if (profileError) {
     $('#gate').textContent = `Профайлыг ачаалж чадсангүй. ${explain(profileError)}`;
     return;
   }
-  if (!profile || profile.role === 'user') { $('#gate').textContent = 'Эрх хүрэхгүй байна.'; return; }
+  if (!profile || !['viewer', 'admin'].includes(profile.role)) {
+    $('#gate').replaceChildren(
+      'Удирдлагын хэсэгт хандах эрхгүй байна. ',
+      el('a', { href: 'account.html' }, 'Миний хуудас руу очих'),
+    );
+    return;
+  }
   me = profile;
 
   if (me.role === 'admin') {
-    const { data: aal } = await supabase.auth.mfa.getAuthenticatorAssuranceLevel();
+    const { data: aal, error } = await supabase.auth.mfa.getAuthenticatorAssuranceLevel();
+    if (run !== adminEpoch) return;
+    if (error) throw error;
     if (aal?.currentLevel !== 'aal2') { show($('#gate'), false); await startMfa(); return; }
     canWrite = true;
   }
@@ -41,6 +83,7 @@ async function start() {
 let factorId = null;
 
 async function startMfa() {
+  const run = adminEpoch;
   show($('#mfa'), true);
   show($('#mfa-enroll'), false);
   factorId = null;
@@ -60,6 +103,7 @@ async function startMfa() {
 
   try {
     const { data, error } = await supabase.auth.mfa.listFactors();
+    if (run !== adminEpoch) return;
     if (error) throw error;
 
     const verified = (data?.totp ?? []).find((f) => f.status === 'verified');
@@ -70,6 +114,7 @@ async function startMfa() {
         factorType: 'totp',
         friendlyName: `zlw-${Date.now()}`,
       });
+      if (run !== adminEpoch) return;
       if (enrollError) throw enrollError;
       $('#mfa-qr').src = enrolled.totp.qr_code;
       $('#mfa-secret').textContent = enrolled.totp.secret;
@@ -78,7 +123,9 @@ async function startMfa() {
     }
 
     submit.disabled = false;
-    say($('#mfa-msg'), '');
+    say($('#mfa-msg'), verified
+      ? 'Баталгаажуулах аппынхаа 6 оронтой кодыг оруулна уу.'
+      : 'QR код эсвэл нууц түлхүүрийг аппдаа нэмээд, үүссэн 6 оронтой кодыг оруулна уу.');
     $('#mfa-code').focus();
   } catch (error) {
     factorId = null;
@@ -92,6 +139,7 @@ async function verifyMfa(event) {
   event.preventDefault();
   const submit = $('#mfa-form button[type="submit"]');
   if (!factorId || submit.disabled) return;
+  const run = adminEpoch;
 
   submit.disabled = true;
   say($('#mfa-msg'), 'Шалгаж байна…');
@@ -99,9 +147,12 @@ async function verifyMfa(event) {
   try {
     const code = $('#mfa-code').value.trim();
     const { error } = await supabase.auth.mfa.challengeAndVerify({ factorId, code });
+    if (run !== adminEpoch) return;
     if (error) throw error;
 
     $('#mfa-code').value = '';
+    $('#mfa-qr').removeAttribute('src');
+    $('#mfa-secret').textContent = '';
     show($('#mfa'), false);
     canWrite = true;
     openConsole();
@@ -169,7 +220,7 @@ function openConsole() {
   }
 
   activateTab(tabs.find(tab => tab.getAttribute('aria-selected') === 'true') ?? tabs[0]);
-  loadPrimeLeft().then(loadRequests);
+  loadPrimeLeft().then(() => loadRequests());
   loadUsers();
   loadLicences();
   loadAudit();
@@ -177,23 +228,24 @@ function openConsole() {
 
 const who = (p) => (p ? [p.email, p.full_name, p.organization].filter(Boolean).join(' · ') : '');
 
-async function loadRequests() {
+async function loadRequests(current = () => true) {
   const { data, error } = await supabase.from('requests')
     .select('id, created_at, kind, machine_id, note, status, decision_note, profiles!requests_user_id_fkey(email, full_name, organization)')
     .order('status', { ascending: false }).order('created_at', { ascending: false }).limit(200);
+  if (!current()) return;
+  if (error) throw error;
   const body = $('#requests');
   body.replaceChildren();
-  if (error) { say($('#requests-msg'), explain(error), 'err'); return; }
   const pendingFirst = [...data].sort((a, b) => (a.status === 'pending' ? 0 : 1) - (b.status === 'pending' ? 0 : 1));
   if (!pendingFirst.length) { body.append(el('tr', {}, el('td', { colspan: 7, class: 'muted' }, 'Хүсэлт алга.'))); }
   for (const r of pendingFirst) {
     const actions = el('div', { class: 'actions' });
     if (r.status === 'pending' && canWrite) {
-      const days = el('input', { type: 'number', min: 1, max: 3660, value: 30, style: 'width:5.5em', 'aria-label': 'Хоног' });
+      const days = el('input', { type: 'number', min: 1, max: 3660, value: 30, class: 'trial-days', 'aria-label': 'Хоног' });
       const edition = el('select', { 'aria-label': 'Төрөл' },
         el('option', { value: 'subscription' }, 'Захиалгат · 365 хоног'),
         el('option', { value: 'trial' }, 'Туршилтын'),
-        el('option', { value: 'prime', disabled: primeLeft !== null && primeLeft <= 0 }, `Prime · хугацаагүй (${primeLeft ?? '?'} үлдсэн)`));
+        el('option', { value: 'prime', disabled: primeLeft !== null && primeLeft <= 0 }, `Prime · хугацаагүй (${primeLeft ?? 'тодорхойгүй'} үлдсэн)`));
       const syncDays = () => { days.disabled = edition.value !== 'trial'; };
       edition.addEventListener('change', syncDays);
       syncDays();
@@ -206,46 +258,94 @@ async function loadRequests() {
       el('td', {}, who(r.profiles)),
       el('td', {}, KIND_MN[r.kind] ?? r.kind),
       el('td', { class: 'mono' }, formatMachine(r.machine_id)),
-      el('td', {}, r.note || r.decision_note || ''),
+      el('td', {},
+        r.note ? el('p', {}, `Хүсэлтийн тайлбар: ${r.note}`) : null,
+        r.decision_note ? el('p', {}, `Шийдвэрийн тайлбар: ${r.decision_note}`)
+          : r.status === 'rejected' ? el('p', { class: 'muted' }, 'Татгалзсан шалтгаан бичээгүй.') : null),
       el('td', {}, statusPill(r.status)),
       el('td', {}, actions),
     ));
   }
 }
 
-async function approve(id, days, edition) {
-  if (edition === 'trial' && (!Number.isInteger(days) || days < 1 || days > 3660)) { say($('#requests-msg'), 'Хоног 1–3660.', 'err'); return; }
-  if (edition === 'prime' && !confirm(`Prime лиценз хугацаагүй бөгөөд буцааж авах боломжгүй. ${primeLeft} үлдснээс 1-ийг олгох уу?`)) { return; }
-  say($('#requests-msg'), 'Лиценз гаргаж байна…');
-  const { data, error } = await supabase.functions.invoke('approve-request', { body: { request_id: id, days, edition } });
-  if (error || data?.error) {
-    let text = data?.error;
-    if (!text && error?.context?.json) { try { text = (await error.context.json()).error; } catch { /* ignore */ } }
-    say($('#requests-msg'), text || explain(error), 'err');
+async function adminAction(messageSelector, task) {
+  if (!canWrite) {
+    say($(messageSelector), 'Өөрчлөлт хийхийн тулд админы эрх, 2 шаттай баталгаажуулалт шаардлагатай.', 'err');
     return;
   }
-  const until = data.license.valid_until === PERPETUAL_UNTIL ? 'хугацаагүй' : data.license.valid_until;
-  say($('#requests-msg'), `${data.license.no} олголоо (${data.license.valid_from} — ${until}).`, 'ok');
-  await loadPrimeLeft();
-  loadRequests();
-  loadLicences();
+  const run = adminEpoch;
+  await busyAction($('#console'), $(messageSelector), () => task(() => run === adminEpoch && canWrite));
+}
+
+const CHECK_BEFORE_RETRY = ' Дахин батлахаас өмнө мэдээллээ шинэчилж, хүсэлт болон лицензийг шалгана уу.';
+
+async function approve(id, days, edition) {
+  await adminAction('#requests-msg', async (current) => {
+    if (edition === 'trial' && (!Number.isInteger(days) || days < 1 || days > 3660)) {
+      throw new Error('Хоногийг 1–3660 хооронд бүхэл тоогоор оруулна уу.');
+    }
+    if (edition === 'prime' && !confirm(`Prime лиценз хугацаагүй бөгөөд буцааж авах боломжгүй. ${primeLeft ?? '?'} үлдснээс 1-ийг олгох уу?`)) return;
+
+    say($('#requests-msg'), 'Лиценз гаргаж байна…');
+    let result;
+    try {
+      result = await supabase.functions.invoke('approve-request', { body: { request_id: id, days, edition } });
+    } catch (error) {
+      if (!current()) return;
+      // Сүлжээ тасарсан: сервер амжсан эсэх тодорхойгүй — автоматаар давтахгүй.
+      throw new Error(explain(error) + CHECK_BEFORE_RETRY);
+    }
+    if (!current()) return;
+
+    const { data, error } = result;
+    if (error || data?.error) {
+      let detail = typeof data?.error === 'string' ? data.error : '';
+      if (!detail && error?.context?.json) {
+        try {
+          const payload = await error.context.json();
+          if (typeof payload?.error === 'string') detail = payload.error;
+        } catch { /* хариу JSON биш */ }
+      }
+      if (!current()) return;
+      throw new Error(explain({ message: detail || error?.message || '', status: error?.context?.status ?? error?.status })
+        + CHECK_BEFORE_RETRY);
+    }
+
+    const licence = data?.license;
+    if (!licence) throw new Error('Серверийн хариуг баталгаажуулж чадсангүй.' + CHECK_BEFORE_RETRY);
+    await loadPrimeLeft();
+    const refreshed = await Promise.all([loadRequests(), loadLicences()]);
+    if (!current()) return;
+    const until = licence.valid_until === PERPETUAL_UNTIL ? 'хугацаагүй' : licence.valid_until;
+    say($('#requests-msg'),
+      `${licence.no} олголоо (${licence.valid_from} — ${until}).`
+        + (refreshed.every(Boolean) ? '' : ' Жагсаалтыг бүрэн шинэчилж чадсангүй — мэдээллээ шинэчилнэ үү.'),
+      'ok');
+  });
 }
 
 async function reject(id) {
-  const reason = prompt('Татгалзсан шалтгаан (хэрэглэгчид харагдана):', '');
-  if (reason === null) { return; }
-  const { error } = await supabase.from('requests')
-    .update({ status: 'rejected', decision_note: reason.slice(0, 300) }).eq('id', id);
-  say($('#requests-msg'), error ? explain(error) : 'Татгалзлаа.', error ? 'err' : 'ok');
-  loadRequests();
+  await adminAction('#requests-msg', async (current) => {
+    const reason = prompt('Татгалзсан шалтгаан (хэрэглэгчид харагдана):', '');
+    if (reason === null) return;
+    say($('#requests-msg'), 'Шийдвэр хадгалж байна…');
+    const { error } = await supabase.from('requests')
+      .update({ status: 'rejected', decision_note: reason.slice(0, 300) }).eq('id', id);
+    if (!current()) return;
+    if (error) throw error;
+    const refreshed = await loadRequests();
+    if (!current()) return;
+    say($('#requests-msg'), refreshed ? 'Татгалзлаа.' : 'Татгалзлаа. Жагсаалтыг шинэчилж чадсангүй.', 'ok');
+  });
 }
 
-async function loadUsers() {
+async function loadUsers(current = () => true) {
   const { data, error } = await supabase.from('profiles')
     .select('id, email, full_name, organization, affiliation, role, created_at').order('created_at', { ascending: false });
+  if (!current()) return;
+  if (error) throw error;
   const body = $('#users');
   body.replaceChildren();
-  if (error) { say($('#users-msg'), explain(error), 'err'); return; }
   for (const p of data) {
     let roleCell = ROLE_MN[p.role] ?? p.role;
     if (canWrite && p.id !== me.id) {
@@ -261,18 +361,25 @@ async function loadUsers() {
 }
 
 async function setRole(id, role) {
-  const { error } = await supabase.from('profiles').update({ role }).eq('id', id);
-  say($('#users-msg'), error ? explain(error) : 'Эрхийг өөрчиллөө.', error ? 'err' : 'ok');
-  loadUsers();
+  await adminAction('#users-msg', async (current) => {
+    say($('#users-msg'), 'Эрх өөрчилж байна…');
+    const { error } = await supabase.from('profiles').update({ role }).eq('id', id);
+    if (!current()) return;
+    if (error) { await loadUsers(); throw error; }
+    const refreshed = await loadUsers();
+    if (!current()) return;
+    say($('#users-msg'), refreshed ? 'Эрхийг өөрчиллөө.' : 'Эрхийг өөрчиллөө. Жагсаалтыг шинэчилж чадсангүй.', 'ok');
+  });
 }
 
-async function loadLicences() {
+async function loadLicences(current = () => true) {
   const { data, error } = await supabase.from('licenses')
     .select('id, no, machine_id, edition, valid_from, valid_until, status, revoked_reason, profiles(email, full_name, organization)')
     .order('created_at', { ascending: false }).limit(500);
+  if (!current()) return;
+  if (error) throw error;
   const body = $('#licenses');
   body.replaceChildren();
-  if (error) { say($('#licenses-msg'), explain(error), 'err'); return; }
   for (const l of data) {
     const action = l.status === 'active' && canWrite
       ? el('button', { class: 'btn btn-line', type: 'button', onclick: () => revoke(l.id, l.no) }, 'Цуцлах')
@@ -280,7 +387,7 @@ async function loadLicences() {
     body.append(el('tr', {},
       el('td', { class: 'mono' }, l.no), el('td', {}, who(l.profiles)),
       el('td', { class: 'mono' }, formatMachine(l.machine_id)), el('td', {}, EDITION_MN[l.edition] ?? l.edition),
-      el('td', {}, `${date(l.valid_from)} — ${l.valid_until === PERPETUAL_UNTIL ? 'хугацаагүй' : date(l.valid_until)}`), el('td', {}, statusPill(l.status)), el('td', {}, action)));
+      el('td', {}, `${date(l.valid_from)} — ${l.valid_until === PERPETUAL_UNTIL ? 'хугацаагүй' : date(l.valid_until)}`), el('td', {}, licencePill(l)), el('td', {}, action)));
   }
 }
 
@@ -319,19 +426,19 @@ function auditDetails(row) {
   return parts.join(' · ');
 }
 
-async function loadAudit() {
+async function loadAudit(current = () => true) {
   const body = $('#audit');
-  const [{ data, error }, { data: people }] = await Promise.all([
+  const [{ data, error }, { data: people, error: peopleError }] = await Promise.all([
     supabase.from('audit_log')
       .select('id, at, actor, db_role, action, entity, entity_id, details')
       .order('id', { ascending: false }).limit(200),
     supabase.from('profiles').select('id, email'),
   ]);
+  if (!current()) return;
+  if (error) throw error;
+  if (peopleError) throw peopleError;
   body.replaceChildren();
-  if (error) { say($('#audit-msg'), explain(error), 'err'); return; }
   const emailOf = new Map((people ?? []).map((p) => [p.id, p.email]));
-  if (!data.length) { say($('#audit-msg'), 'Бүртгэл хоосон байна.'); return; }
-  say($('#audit-msg'), '');
   for (const row of data) {
     const actor = (row.actor && emailOf.get(row.actor))
       ?? ROLE_SOURCE_MN[row.db_role] ?? row.db_role;
@@ -345,11 +452,46 @@ async function loadAudit() {
 }
 
 async function revoke(id, no) {
-  const reason = prompt(`${no}-ыг цуцлах шалтгаан:`, '');
-  if (reason === null) { return; }
-  const { error } = await supabase.from('licenses').update({ status: 'revoked', revoked_reason: reason.slice(0, 300) }).eq('id', id);
-  say($('#licenses-msg'), error ? explain(error) : `${no} цуцлагдлаа.`, error ? 'err' : 'ok');
-  loadLicences();
+  await adminAction('#licenses-msg', async (current) => {
+    const reason = prompt(`${no}-ыг цуцлах шалтгаан:`, '');
+    if (reason === null) return;
+    say($('#licenses-msg'), 'Цуцлалтыг хадгалж байна…');
+    const { error } = await supabase.from('licenses')
+      .update({ status: 'revoked', revoked_reason: reason.slice(0, 300) }).eq('id', id);
+    if (!current()) return;
+    if (error) throw error;
+    const refreshed = await loadLicences();
+    if (!current()) return;
+    say($('#licenses-msg'), refreshed ? `${no} цуцлагдлаа.` : `${no} цуцлагдлаа. Жагсаалтыг шинэчилж чадсангүй.`, 'ok');
+  });
 }
 
-start();
+loadRequests = tableLoader(loadRequests, '#requests', '#requests-msg', 7, () => adminEpoch);
+loadUsers = tableLoader(loadUsers, '#users', '#users-msg', 6, () => adminEpoch);
+loadLicences = tableLoader(loadLicences, '#licenses', '#licenses-msg', 7, () => adminEpoch);
+loadAudit = tableLoader(loadAudit, '#audit', '#audit-msg', 5, () => adminEpoch);
+
+initPortalUX();
+window.addEventListener('portal-session-expired', closeConsole);
+if (configured) {
+  supabase.auth.onAuthStateChange((event, session) => {
+    if (event === 'SIGNED_OUT' || (me && session && session.user.id !== me.id)) { closeConsole(); return; }
+    if (event === 'TOKEN_REFRESHED' && me?.role === 'admin' && canWrite) {
+      setTimeout(async () => {
+        const run = adminEpoch;
+        try {
+          const { data, error } = await supabase.auth.mfa.getAuthenticatorAssuranceLevel();
+          if (run === adminEpoch && (error || data?.currentLevel !== 'aal2')) closeConsole();
+        } catch {
+          if (run === adminEpoch) closeConsole();
+        }
+      }, 0);
+    }
+  });
+}
+
+start().catch((error) => {
+  show($('#gate'), true);
+  $('#gate').textContent = explain(error);
+  say($('#portal-msg'), 'Холболтоо шалгаад мэдээллээ шинэчилнэ үү.');
+});

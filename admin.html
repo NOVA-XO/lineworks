@@ -85,7 +85,12 @@ if (window.top === window.self) {
     <noscript>
       <p class="note">Удирдлагын хэсгийг ашиглахын тулд хөтчийн JavaScript-ийг идэвхжүүлнэ үү.</p>
     </noscript>
-    <p id="gate" class="note">Шалгаж байна…</p>
+    <p id="gate" class="note" role="status">Нэвтрэлт, эрхийг шалгаж байна…</p>
+    <div class="portal-feedback">
+      <p id="portal-msg" class="msg" role="status"></p>
+      <p id="network-msg" class="msg" role="status"></p>
+      <button id="portal-refresh" class="btn btn-line" type="button">Мэдээлэл шинэчлэх</button>
+    </div>
 
     <!-- Админ: TOTP -->
     <section id="mfa" class="panel" hidden>
@@ -108,6 +113,15 @@ if (window.top === window.self) {
 
     <div id="console" hidden>
       <p class="muted"><span id="mode"></span> <strong id="prime-left"></strong></p>
+      <details class="privacy-note">
+        <summary>Хэрэглэгчийн мэдээлэлтэй ажиллах</summary>
+        <ul>
+          <li>Энд хэрэглэгчийн профайл, имэйл, компьютерийн дугаар, хүсэлт, лиценз, үйлдлийн бүртгэл харагдана.</li>
+          <li>Мэдээллийг зөвхөн лицензийн хүсэлт шийдвэрлэх, хэрэглэгчид туслахад ашиглана уу.</li>
+          <li>Лицензийн текст, баталгаажуулах нууц түлхүүр, хувийн мэдээлэлтэй дэлгэцийг бусдад бүү хуваалцаарай.</li>
+          <li>Мэдээлэл устгуулах хүсэлт <a href="mailto:zenithsolar.contact@gmail.com">zenithsolar.contact@gmail.com</a> хаягаар ирнэ.</li>
+        </ul>
+      </details>
       <div class="tabs" role="tablist" aria-label="Удирдлагын хэсгүүд" aria-orientation="horizontal">
         <button type="button" role="tab" id="tab-requests" data-tab="requests" aria-controls="panel-requests" aria-selected="true" tabindex="0">Хүсэлтүүд</button>
         <button type="button" role="tab" id="tab-users" data-tab="users" aria-controls="panel-users" aria-selected="false" tabindex="-1">Хэрэглэгчид</button>

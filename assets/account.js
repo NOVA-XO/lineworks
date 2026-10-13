@@ -1,6 +1,7 @@
 import {
   supabase, configured, $, el, show, say, explain, wireNav, copy, download, enabledProviders,
   machineDigits, formatMachine, date, daysLeft, statusPill, KIND_MN, EDITION_MN, PERPETUAL_UNTIL,
+  initPortalUX, busyAction, tableLoader, licencePill,
 } from './portal.js';
 import { INSTALLER_PATH } from './portal-config.js';
 import { profileModel } from './profile-model.js';
@@ -15,12 +16,21 @@ let myRequests = [];
 const ubToday = () => new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Ulaanbaatar' }).format(new Date());
 
 async function start() {
-  if (!configured) { show($('#not-configured'), true); return; }
+  initPortalUX();
+  if (!configured) {
+    show($('#not-configured'), true);
+    say($('#portal-msg'), '');
+    return;
+  }
 
+  // Захын төлвүүд (Astra, 2026-10-13): гарвал хувийн хэсгийг тэр дор нь хааж, нэвтэрвэл
+  // auth-ийн callback-аас гадуур дахин зурна (callback дотор await хийвэл supabase-js гацдаг).
   supabase.auth.onAuthStateChange((event) => {
-    if (event === 'SIGNED_IN' || event === 'SIGNED_OUT') { render(); }
+    if (event === 'SIGNED_OUT') { closeAccount('Та гарлаа.'); return; }
+    if (event === 'SIGNED_IN') { setTimeout(() => { void render(); }, 0); }
   });
-  await render();
+  window.addEventListener('portal-session-expired',
+    () => closeAccount('Нэвтрэлт дууссан байна. Үргэлжлүүлэхийн тулд дахин нэвтэрнэ үү.'));
 
   $('#signin-form').addEventListener('submit', signInWithEmail);
   $('#code-form').addEventListener('submit', verifyCode);
@@ -50,43 +60,89 @@ async function start() {
   });
   $('#profile-form').addEventListener('submit', saveProfile);
   $('#request-form').addEventListener('submit', sendRequest);
-  $('#kind').addEventListener('change', () => show($('#renews-label'), $('#kind').value === 'renewal'));
+  $('#kind').addEventListener('change', () => {
+    const renewal = $('#kind').value === 'renewal';
+    show($('#renews-label'), renewal);
+    if (renewal && $('#renews').options.length <= 1) {
+      say($('#request-msg'), 'Сунгах боломжтой хугацаатай лиценз алга. Шинэ лицензийн хүсэлт сонгоно уу.');
+    } else {
+      updateRequestGate();
+    }
+  });
   $('#installer').addEventListener('click', downloadInstaller);
   if (midFromUrl) { $('#machine').value = formatMachine(midFromUrl); }
+  await render();
 }
 
 let renderRun = 0;
 
+function closeAccount(message) {
+  ++renderRun;
+  myProfile = null;
+  myLicences = [];
+  myRequests = [];
+  show($('#signed-in'), false);
+  show($('#signed-out'), true);
+  showCodeStep(false);
+  $('#request-submit').disabled = true;
+  $('#signed-in').removeAttribute('aria-busy');
+  say($('#portal-msg'), message);
+}
+
+/* Хувийн хэсгийг БҮХ өгөгдөл ирсний дараа л харуулна: уншилтын алдааг «лиценз алга» гэж
+   дүрслэхгүй, хуучирсан хариу (дараагийн render эсвэл гарсны дараах) юу ч бичихгүй. */
 async function render() {
   const run = ++renderRun;
-  const session = await wireNav();
-  if (run !== renderRun) return;
-  show($('#signed-out'), !session);
-  show($('#signed-in'), !!session);
-  if (!session) {
-    myProfile = null; myLicences = []; myRequests = [];
-    return;
-  }
+  const current = () => run === renderRun;
+  show($('#signed-in'), false);
+  $('#request-submit').disabled = true;
+  $('#signed-in').setAttribute('aria-busy', 'true');
+  say($('#portal-msg'), 'Мэдээлэл ачаалж байна…');
 
-  $('#who').textContent = `Нэвтэрсэн: ${session.user.email ?? ''}`;
-  const { data: profile, error } = await supabase.from('profiles')
-    .select('full_name, organization, affiliation, role, created_at').eq('id', session.user.id).single();
-  if (run !== renderRun) return;
-  if (error) { say($('#profile-msg'), explain(error), 'err'); return; }
-  myProfile = { ...profile, email: session.user.email ?? '' };
-  $('#full-name').value = profile.full_name ?? '';
-  $('#organization').value = profile.organization ?? '';
-  for (const radio of $('#profile-form').querySelectorAll('[name="affiliation"]')) {
-    radio.checked = radio.value === profile.affiliation;
+  try {
+    const session = await wireNav();
+    if (!current()) return;
+    show($('#signed-out'), !session);
+    if (!session) {
+      myProfile = null; myLicences = []; myRequests = [];
+      say($('#portal-msg'), ''); // нэвтрэх хэсэг өөрөө тайлбарлана — давхар мессеж хэрэггүй
+      return;
+    }
+
+    const { data: profile, error } = await supabase.from('profiles')
+      .select('full_name, organization, affiliation, role, created_at').eq('id', session.user.id).single();
+    if (!current()) return;
+    if (error) throw error;
+
+    myProfile = { ...profile, email: session.user.email ?? '' };
+    $('#full-name').value = profile.full_name ?? '';
+    $('#organization').value = profile.organization ?? '';
+    for (const radio of $('#profile-form').querySelectorAll('[name="affiliation"]')) {
+      radio.checked = radio.value === profile.affiliation;
+    }
+    syncOrganization();
+    $('#who').textContent = `Нэвтэрсэн: ${session.user.email ?? ''}`;
+    if (profile.role === 'admin' || profile.role === 'viewer') {
+      $('#who').append(' · ', el('a', { href: 'admin.html' }, 'Удирдлагын хуудас'));
+    }
+
+    const loaded = await Promise.all([loadLicences(session.user.id), loadRequests(session.user.id)]);
+    if (!current()) return;
+    if (loaded.some((ok) => !ok)) {
+      say($('#portal-msg'),
+        'Лиценз эсвэл хүсэлтийн мэдээллийг бүрэн ачаалж чадсангүй. Холболтоо шалгаад «Мэдээлэл шинэчлэх» товчийг дарна уу.',
+        'err');
+    } else {
+      say($('#portal-msg'), '');
+    }
+    updateRequestGate();
+    showProfile();
+    show($('#signed-in'), true);
+  } catch (error) {
+    if (current()) say($('#portal-msg'), explain(error), 'err');
+  } finally {
+    if (current()) $('#signed-in').removeAttribute('aria-busy');
   }
-  syncOrganization();
-  $('#who').textContent = `Нэвтэрсэн: ${session.user.email ?? ''}`;
-  if (profile.role !== 'user') {
-    $('#who').append(' · ', el('a', { href: 'admin.html' }, 'Удирдлагын хуудас'));
-  }
-  updateRequestGate();
-  await Promise.all([loadLicences(session.user.id), loadRequests(session.user.id)]);
-  showProfile();
 }
 
 /* Профайлыг лиценз ба хүсэлт хоёулаа ачаалагдсаны дараа, мөн тэдгээр өөрчлөгдөх бүрд. */
@@ -141,12 +197,28 @@ function updateRequestGate() {
     && myProfile.organization === organization
     && myProfile.affiliation === affiliation
   );
-  $('#request-submit').disabled = !ready;
-  if (!ready) {
-    say($('#request-msg'), 'Эхлээд нэр, төрлөө сонгож, компани эсвэл сургуулийн нэрээ бөглөж хадгална уу.');
+  const pending = myRequests.filter((request) => request.status === 'pending').length;
+  const open = ready && pending < MAX_PENDING;
+  $('#request-submit').disabled = !open;
+
+  // Хаалганы мессеж зөвхөн хаалганых: өөр мессеж (амжилт, алдаа) байвал дарж бичихгүй,
+  // хаалга нээгдвэл өөрийнхөө бичснийг арилгана.
+  const msg = $('#request-msg');
+  const gate = !ready
+    ? 'Эхлээд нэр, төрлөө сонгож, компани эсвэл сургуулийн нэрээ бөглөж хадгална уу.'
+    : pending >= MAX_PENDING
+      ? `${MAX_PENDING} хүсэлт хүлээгдэж байна. Аль нэг нь шийдвэрлэгдсэний дараа шинэ хүсэлт илгээх боломжтой.`
+      : '';
+  if (gate) {
+    say(msg, gate);
+  } else if (GATE_TEXTS.some((text) => msg.textContent.startsWith(text))) {
+    say(msg, '');
   }
-  return ready;
+  return open;
 }
+
+const MAX_PENDING = 3; // DB-ийн триггер мөн ижил хязгаарыг шалгана — энэ нь урьдчилсан мэдэгдэл л
+const GATE_TEXTS = ['Эхлээд нэр, төрлөө', `${MAX_PENDING} хүсэлт хүлээгдэж`, 'Сунгах боломжтой хугацаатай'];
 
 let codeEmail = '';
 let codeSending = false;
@@ -174,6 +246,9 @@ function syncCodeControls() {
   if (!seconds && codeTimer !== null) {
     clearInterval(codeTimer);
     codeTimer = null;
+    if (!$('#signed-out').hidden && !$('#code-form').hidden) {
+      say($('#code-msg'), 'Дахин код илгээх боломжтой боллоо.');
+    }
   }
 }
 
@@ -241,6 +316,7 @@ function showCodeStep(on) {
   show($('#code-form'), on);
   $('#code-destination').textContent = on ? `${codeEmail} хаяг руу илгээсэн` : '';
   $('#signin-code').value = '';
+  $('#signin-code').removeAttribute('aria-invalid');
   say($('#code-msg'), '');
   syncCodeControls();
   if (on) { $('#signin-code').focus(); }
@@ -264,8 +340,9 @@ async function verifyCode(event) {
     if (error) throw error;
     showCodeStep(false);
   } catch (error) {
+    $('#signin-code').setAttribute('aria-invalid', 'true');
     say($('#code-msg'), /expired|invalid/i.test(error?.message ?? '')
-      ? 'Код буруу эсвэл хугацаа нь дууссан. Шинэ код авна уу.'
+      ? 'Код буруу эсвэл хугацаа нь дууссан байна. Имэйлийн хамгийн сүүлийн кодоо шалгах эсвэл шинэ код авна уу.'
       : explain(error), 'err');
   } finally {
     codeVerifying = false;
@@ -289,17 +366,20 @@ async function saveProfile(event) {
 
   button.disabled = true;
   $('#request-submit').disabled = true;
+  const run = renderRun;
   say($('#profile-msg'), 'Хадгалж байна…');
   try {
     const { data: { user }, error: authError } = await supabase.auth.getUser();
+    if (run !== renderRun) return;
     if (authError) throw authError;
-    if (!user) throw new Error('Нэвтрэлтийн хугацаа дууссан. Дахин нэвтэрнэ үү.');
+    if (!user) { closeAccount('Нэвтрэлт дууссан байна. Үргэлжлүүлэхийн тулд дахин нэвтэрнэ үү.'); return; }
 
     const { data, error } = await supabase.from('profiles')
       .update(values)
       .eq('id', user.id)
       .select('full_name, organization, affiliation, role, created_at')
       .single();
+    if (run !== renderRun) return;
     if (error) throw error;
     myProfile = { ...data, email: user.email ?? '' };
     say($('#profile-msg'), 'Хадгаллаа.', 'ok');
@@ -307,9 +387,10 @@ async function saveProfile(event) {
     updateRequestGate();
     showProfile();
   } catch (error) {
-    say($('#profile-msg'), explain(error), 'err');
+    if (run === renderRun) say($('#profile-msg'), explain(error), 'err');
   } finally {
     button.disabled = false;
+    if (run === renderRun) updateRequestGate();
   }
 }
 
@@ -328,22 +409,30 @@ async function sendRequest(event) {
     if (!id) { say($('#request-msg'), 'Сунгах лицензээ сонгоно уу.', 'err'); return; }
     row.renews_license = id;
   }
-  const { error } = await supabase.from('requests').insert(row);
-  if (error) { say($('#request-msg'), explain(error), 'err'); return; }
-  say($('#request-msg'), 'Хүсэлт илгээгдлээ. Батлагдмагц лиценз доор гарна.', 'ok');
-  $('#note').value = '';
-  const { data: { user } } = await supabase.auth.getUser();
-  await loadRequests(user.id);
-  showProfile();
+  const run = renderRun;
+  let submitted = false;
+  await busyAction($('#request-form'), $('#request-msg'), async () => {
+    say($('#request-msg'), 'Хүсэлт илгээж байна…');
+    const { error } = await supabase.from('requests').insert(row);
+    if (run !== renderRun) return;
+    if (error) throw error;
+    submitted = true;
+    $('#note').value = '';
+  });
+  if (run !== renderRun || !submitted) { updateRequestGate(); return; }
+  await render();
+  say($('#request-msg'),
+    'Хүсэлт илгээгдлээ. Шийдвэр гарсны дараа «Мэдээлэл шинэчлэх» товчоор лицензээ шалгана уу.', 'ok');
 }
 
-async function loadLicences(userId) {
+async function loadLicences(userId, current = () => true) {
   const { data, error } = await supabase.from('licenses')
     .select('id, no, machine_id, edition, valid_from, valid_until, status, license_text')
     .eq('user_id', userId).order('created_at', { ascending: false });
+  if (!current()) return;
+  if (error) throw error;
   const body = $('#licenses');
   body.replaceChildren();
-  if (error) { say($('#licenses-msg'), explain(error), 'err'); return; }
   myLicences = data;
   if (!data.length) { body.append(el('tr', {}, el('td', { colspan: 7, class: 'muted' }, 'Лиценз алга.'))); }
   for (const lic of data) {
@@ -353,7 +442,7 @@ async function loadLicences(userId) {
       el('td', {}, EDITION_MN[lic.edition] ?? lic.edition),
       el('td', {}, `${date(lic.valid_from)} — ${lic.valid_until === PERPETUAL_UNTIL ? 'хугацаагүй' : date(lic.valid_until)}`),
       el('td', {}, lic.valid_until === PERPETUAL_UNTIL ? '—' : `${daysLeft(lic.valid_until)} хоног`),
-      el('td', {}, statusPill(lic.status)),
+      el('td', {}, licencePill(lic)),
       el('td', {}, el('div', { class: 'actions' },
         el('button', { class: 'btn btn-line', type: 'button', onclick: () => copy(lic.license_text, $('#licenses-msg')) }, 'Хуулах'),
         el('button', { class: 'btn btn-line', type: 'button', onclick: () => download(`${lic.no}.lic`, `${lic.license_text}\n`) }, '.lic татах'))),
@@ -365,13 +454,14 @@ async function loadLicences(userId) {
       .map((lic) => el('option', { value: lic.id }, `${lic.no} · ${formatMachine(lic.machine_id)} · ${date(lic.valid_until)} хүртэл`)));
 }
 
-async function loadRequests(userId) {
+async function loadRequests(userId, current = () => true) {
   const { data, error } = await supabase.from('requests')
     .select('created_at, kind, machine_id, status, decision_note')
     .eq('user_id', userId).order('created_at', { ascending: false });
+  if (!current()) return;
+  if (error) throw error;
   const body = $('#requests');
   body.replaceChildren();
-  if (error) { body.append(el('tr', {}, el('td', { colspan: 5 }, explain(error)))); return; }
   myRequests = data;
   if (!data.length) { body.append(el('tr', {}, el('td', { colspan: 5, class: 'muted' }, 'Хүсэлт алга.'))); }
   for (const r of data.slice(0, 50)) {
@@ -380,25 +470,38 @@ async function loadRequests(userId) {
       el('td', {}, KIND_MN[r.kind] ?? r.kind),
       el('td', { class: 'mono' }, formatMachine(r.machine_id)),
       el('td', {}, statusPill(r.status)),
-      el('td', {}, r.decision_note ?? ''),
+      el('td', {}, r.decision_note || (
+        r.status === 'pending' ? 'Шийдвэр хүлээгдэж байна.'
+          : r.status === 'rejected' ? 'Татгалзсан шалтгаан бичээгүй байна.'
+            : r.status === 'approved' ? 'Лицензээ «Миний лицензүүд» хэсгээс авна уу.'
+              : '')),
     ));
   }
 }
 
 async function downloadInstaller() {
-  say($('#installer-msg'), 'Холбоос бэлдэж байна…');
-  const { data, error } = await supabase.storage.from('installers').createSignedUrl(INSTALLER_PATH, 300);
-  if (error || !data?.signedUrl) { say($('#installer-msg'), explain(error) || 'Суулгагч олдсонгүй.', 'err'); return; }
-  say($('#installer-msg'), '');
-  location.href = data.signedUrl;
+  const run = renderRun;
+  await busyAction($('#installer').closest('section'), $('#installer-msg'), async () => {
+    say($('#installer-msg'), 'Холбоос бэлдэж байна…');
+    const { data, error } = await supabase.storage.from('installers').createSignedUrl(INSTALLER_PATH, 300);
+    if (run !== renderRun) return;
+    if (error) throw error;
+    if (!data?.signedUrl) throw new Error('Суулгагч олдсонгүй.');
+    say($('#installer-msg'), 'Таталт эхэлж байна…', 'ok');
+    location.href = data.signedUrl;
+  });
 }
 
-$('#full-name').addEventListener('input', () => { $('#request-submit').disabled = true; });
-$('#organization').addEventListener('input', () => { $('#request-submit').disabled = true; });
+$('#full-name').addEventListener('input', updateRequestGate);
+$('#organization').addEventListener('input', updateRequestGate);
 for (const radio of $('#profile-form').querySelectorAll('[name="affiliation"]')) {
   radio.addEventListener('input', () => {
     syncOrganization();
-    $('#request-submit').disabled = true;
+    updateRequestGate();
   });
 }
-start();
+$('#signin-code').addEventListener('input', () => $('#signin-code').removeAttribute('aria-invalid'));
+
+loadLicences = tableLoader(loadLicences, '#licenses', '#licenses-msg', 7, () => renderRun);
+loadRequests = tableLoader(loadRequests, '#requests', '#requests-msg', 5, () => renderRun);
+start().catch((error) => say($('#portal-msg'), explain(error), 'err'));
