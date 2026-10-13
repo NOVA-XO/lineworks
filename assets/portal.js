@@ -76,6 +76,9 @@ export function explain(error) {
   if (/row-level security|permission denied/i.test(text)) { return 'Энэ үйлдэлд эрх хүрэхгүй байна.'; }
   if (/machine_id_check/.test(text)) { return 'Компьютерийн дугаар 16 оронтой (жишээ нь 3F2A-91C0-7B4E-D218) байх ёстой.'; }
   if (/JWT|expired/i.test(text)) { return 'Нэвтрэлтийн хугацаа дууссан. Дахин нэвтэрнэ үү.'; }
+  if (/Error sending .*email/i.test(text)) {
+    return 'Имэйл илгээж чадсангүй. Хэдэн минутын дараа дахин оролдоно уу; асуудал үргэлжилвэл бидэнтэй холбогдоно уу.';
+  }
   return text;
 }
 
