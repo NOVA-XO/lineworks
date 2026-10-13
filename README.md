@@ -114,7 +114,7 @@ account.html: «Миний лицензүүд» → «Хуулах» / «.lic т
     «Нэвтрэх код — Zenith LineWorks» ба «Бүртгэлээ баталгаажуулна уу — Zenith LineWorks».
   - **OTP тохиргоо (M2):** Authentication → Sign In / Providers → Email → **OTP length 6**,
     **OTP expiration 900** секунд (загвар «15 минут» гэж бичсэн).
-  - **Илгээгч (түр, 2026-10-13):** өөрийн SMTP — `Zenith LineWorks <zenith.lineworks@gmail.com>`,
+  - **Илгээгч (түр, 2026-10-13):** өөрийн SMTP — `Zenith LineWorks <zenithsolar.lineworks@gmail.com>`,
     `smtp.gmail.com:587`, нууц үг нь Gmail-ийн **App password** (Gmail 2-Step Verification шаардана),
     хэрэглэгч бүрт 60 с, цагт 30 имэйл. Supabase өөрийн SMTP-гүй үед **загварыг үл тоомсорлож**
     анхдагч англи «Your sign-in link»-ийг илгээдэг.
