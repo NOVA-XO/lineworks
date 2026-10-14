@@ -876,6 +876,59 @@ code.mono {
 .machine-help li + li { margin-top: 8px; }
 .machine-help p { margin-block: 8px; }
 
+#request-form,
+#request-form > * {
+  min-width: 0;
+}
+
+.request-code-field {
+  display: grid;
+  gap: 7px;
+  min-width: 0;
+}
+
+#request-code {
+  box-sizing: border-box;
+  display: block;
+  width: 100%;
+  min-width: 0;
+  max-width: 100%;
+  height: 6.5rem;
+  min-height: 6.5rem;
+  padding: 10px 12px;
+  background: var(--card);
+  color: var(--ink);
+  font-size: 1rem;
+  line-height: 1.45;
+  letter-spacing: 0;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  word-break: break-all;
+  overflow-x: hidden;
+  overflow-y: auto;
+  resize: vertical;
+}
+
+#request-code-hint,
+#request-machine {
+  margin: 0;
+  overflow-wrap: anywhere;
+}
+
+#request-code-hint {
+  font-size: .875rem;
+  line-height: 1.5;
+}
+
+#request-machine:empty {
+  display: none;
+}
+
+.machine-help summary:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+
 .privacy-note > h2 { font-size: 1.15rem; margin-bottom: 12px; }
 
 /* Нэвтрэх / MFA хэсэг төвд нарийн байх үед мэдэгдэл ба тайлбар ижил өргөнтэй. */

@@ -15,7 +15,8 @@
    Хүсэлт 'pending' төлөвтэй байх ба шинэчлэл нь нөхцөлтэй update-аар (status =
    'pending') хийгдэх тул хоёр админ зэрэг дарсан ч нэг л лиценз гарна.
 
-   Нууц (supabase secrets set): ZLW_PRIVATE_PEM, ZLW_DATA_KEY, ZLW_PEPPER.
+   Нууц (supabase secrets set): ZLW_PRIVATE_PEM, ZLW_DATA_KEY. (ZLW_PEPPER нь лиценз v2-ынх,
+   2026-10-14-өөс хэрэглэгдэхгүй — v3 өгөгдлийн түлхүүрийг компьютерийн TPM түлхүүрээр шифрлэнэ.)
    ========================================================================== */
 
 import { createClient } from 'npm:@supabase/supabase-js@2.117.3';
@@ -82,11 +83,17 @@ Deno.serve(async (req) => {
 
   const { data: request } = await admin
     .from('requests')
-    .select('id, user_id, machine_id, status, kind, renews_license, profiles!requests_user_id_fkey(full_name, organization)')
+    .select('id, user_id, machine_id, machine_key, status, kind, renews_license, profiles!requests_user_id_fkey(full_name, organization)')
     .eq('id', requestId)
     .single();
   if (!request) { return reply(404, { error: 'Хүсэлт олдсонгүй.' }); }
   if (request.status !== 'pending') { return reply(409, { error: 'Хүсэлт аль хэдийн шийдэгдсэн.' }); }
+  if (!request.machine_key) {
+    return reply(409, {
+      error: 'Энэ хүсэлт хуучин хэлбэрийнх (компьютерийн түлхүүргүй). Татгалзаад, хэрэглэгчээр шинэ хувилбарын '
+        + 'ZLWLICENSE-ийн хүсэлтийн кодоор дахин хүсүүлнэ үү.',
+    });
+  }
 
   const profile = request.profiles as unknown as { full_name: string; organization: string };
   const from = ulaanbaatarDate();
@@ -109,8 +116,14 @@ Deno.serve(async (req) => {
   // The number is random (newLicenseNo, 80 bits) and part of the signed payload, so a
   // collision with the unique column means signing again under a new number. At 80 bits
   // that never happens in practice; the loop is there so it cannot fail if it does.
-  let licence: { id: number; no: string; valid_from: string; valid_until: string } | null = null;
-  let insertError: { code?: string; message?: string } | null = null;
+  // ONE TRANSACTION (issue_license_for_request, 2026-10-14): the licence row and the
+  // request's decision are written together under a lock on the request, so a requester can
+  // never read a signed licence for a request that another admin decided, or that a crash
+  // left half-done. Before, the licence was inserted first and deleted again on a lost race —
+  // long enough to be downloaded, and an offline licence once copied cannot be taken back.
+  type Issued = { license_id: number; license_no: string; valid_from: string; valid_until: string };
+  let licence: Issued | null = null;
+  let rpcError: { code?: string; message?: string } | null = null;
   for (let attempt = 0; attempt < 3; attempt += 1) {
     const no = newLicenseNo();
     let armoured: string;
@@ -119,43 +132,45 @@ Deno.serve(async (req) => {
         {
           privatePem: Deno.env.get('ZLW_PRIVATE_PEM')!,
           dataKeyB64: Deno.env.get('ZLW_DATA_KEY')!,
-          pepperB64: Deno.env.get('ZLW_PEPPER')!,
         },
-        { no, to: profile.full_name, org: profile.organization, edition, mid: request.machine_id, from, till },
+        {
+          no, to: profile.full_name, org: profile.organization, edition, from, till,
+          requestCode: `ZLWK1.${request.machine_key}`, mid: request.machine_id,
+        },
       ));
     } catch (e) {
-      console.error('issueLicense failed:', (e as Error).message);
+      const message = (e as Error).message;
+      console.error('issueLicense failed:', message);
+      // A request whose key does not parse, or does not match its identifier, is the
+      // requester's to redo — said as such rather than as a server fault.
+      if (/Хүсэлтийн код|таарахгүй|хүлээгдсэн хэлбэр/.test(message)) { return reply(409, { error: message }); }
       return reply(500, { error: 'Лиценз гаргаж чадсангүй. Функцийн логийг шалгана уу.' });
     }
 
-    ({ data: licence, error: insertError } = await admin
-      .from('licenses')
-      .insert({
-        no, user_id: request.user_id, machine_id: request.machine_id, edition,
-        valid_from: from, valid_until: till, license_text: armoured,
-      })
-      .select('id, no, valid_from, valid_until')
-      .single());
-    if (!(insertError?.code === '23505' && (insertError.message ?? '').includes('licenses_no_key'))) {
+    const { data, error } = await admin.rpc('issue_license_for_request', {
+      p_request_id: requestId,
+      p_decided_by: who.user.id,
+      p_no: no,
+      p_machine_id: request.machine_id,
+      p_edition: edition,
+      p_valid_from: from,
+      p_valid_until: till,
+      p_license_text: armoured,
+    });
+    rpcError = error;
+    licence = (data as Issued[] | null)?.[0] ?? null;
+    if (!(error?.code === '23505' && (error.message ?? '').includes('licenses_no_key'))) {
       break;
     }
   }
-  if (insertError || !licence) {
-    const text = insertError?.message ?? '';
-    return reply(text.includes('Prime') ? 409 : 500, { error: text.includes('Prime') ? text : 'Лицензийг хадгалж чадсангүй.' });
+  if (rpcError || !licence) {
+    const text = rpcError?.message ?? '';
+    if (rpcError?.code === 'ZL409' || rpcError?.code === 'ZL404' || text.includes('Prime')) {
+      return reply(rpcError?.code === 'ZL404' ? 404 : 409, { error: text });
+    }
+    console.error('issue_license_for_request failed:', rpcError);
+    return reply(500, { error: 'Лицензийг хадгалж чадсангүй.' });
   }
 
-  // Conditional on still pending: of two admins clicking at once, only one wins.
-  const { data: decided } = await admin
-    .from('requests')
-    .update({ status: 'approved', decided_by: who.user.id, decided_at: new Date().toISOString(), license_id: licence.id })
-    .eq('id', requestId)
-    .eq('status', 'pending')
-    .select('id');
-  if (!decided?.length) {
-    await admin.from('licenses').delete().eq('id', licence.id);
-    return reply(409, { error: 'Хүсэлт энэ хооронд шийдэгдсэн.' });
-  }
-
-  return reply(200, { license: { no: licence.no, valid_from: licence.valid_from, valid_until: licence.valid_until } });
+  return reply(200, { license: { no: licence.license_no, valid_from: licence.valid_from, valid_until: licence.valid_until } });
 });

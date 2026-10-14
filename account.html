@@ -217,28 +217,69 @@ if (window.top === window.self) {
       <section class="panel">
         <h3>Лиценз хүсэх</h3>
         <p class="muted">
-          Компьютерийн дугаарыг Civil 3D дээр <code>ZLWLICENSE</code> командаар харна. Тэр цонхны
-          «Хүсэлт илгээх…» товч энэ хуудсыг дугаартай нь нээдэг. Лиценз зөвхөн тэр компьютерт ажиллана.
+          Лиценз ашиглах компьютерээсээ хүсэлтийн кодыг хуулж оруулна уу.
+          Лиценз зөвхөн тэр компьютерт ажиллана.
         </p>
         <details class="machine-help">
-          <summary>Компьютерийн дугаараа хэрхэн олох вэ?</summary>
-          <p>Дугаар нь <code>XXXX-XXXX-XXXX-XXXX</code> хэлбэртэй, 16 тэмдэгт. Хөтөч үүнийг уншиж чадахгүй тул
-            лиценз ашиглах компьютер дээрээ доорх аль нэг замаар хуулна.</p>
+          <summary>Хүсэлтийн кодыг хаанаас авах вэ?</summary>
+          <p>
+            Лиценз ашиглах компьютер дээрээ доорх аль нэг цонхыг нээгээд
+            «Хүсэлтийн код» хэсгийн «Хуулах» товчийг дарна.
+          </p>
           <ol>
-            <li><strong>Суулгагчаас.</strong> <a href="download.html">ZenithLineWorksSetup.exe</a>-г ажиллуулахад
-              лицензийн алхамд «Компьютерийн дугаар» харагдана — «Хуулах» товчийг дарна.</li>
-            <li><strong>Civil 3D-ээс.</strong> Командын мөрөнд <code>ZLWLICENSE</code> гэж бичээд Enter. Нээгдсэн цонхны
-              «Компьютерийн дугаар» хэсгийн «Хуулах» товчийг дарна.</li>
-            <li><strong>Ribbon-оос.</strong> <strong>LineWorks</strong> таб → <strong>Тухай</strong> → «Лиценз» товч —
-              мөн <code>ZLWLICENSE</code> цонхыг нээнэ.</li>
+            <li>
+              <strong>Суулгагчаас.</strong>
+              <a href="download.html">ZenithLineWorksSetup.exe</a>-г ажиллуулаад
+              лицензийн алхамд очно.
+            </li>
+            <li>
+              <strong>Civil 3D-ээс.</strong>
+              Командын мөрөнд <code>ZLWLICENSE</code> гэж бичээд Enter дарна.
+            </li>
+            <li>
+              <strong>Ribbon-оос.</strong>
+              <strong>LineWorks</strong> → <strong>Тухай</strong> →
+              <strong>Лиценз</strong> гэж нээнэ.
+            </li>
           </ol>
-          <p>Хуулсан дугаараа доорх талбарт тавина. «Тухай» цонхонд дугаарын дунд хэсэг <code>••••</code>-ээр
-            нуугдсан байдаг — тэндээс бүү хуулаарай.</p>
+          <p>
+            Тэр цонхны «Хүсэлт илгээх…» товчийг дарвал энэ хуудас хүсэлтийн
+            кодыг бөглөсөн төлөвөөр нээгдэнэ.
+          </p>
+          <p>
+            Код нь <code>ZLWK1.</code>-ээр эхэлнэ. Анх бэлтгэхэд ойролцоогоор
+            5 секунд шаардагдана.
+            <code>XXXX-XXXX-XXXX-XXXX</code> хэлбэртэй компьютерийн дугаар нь
+            зөвхөн тулгаж шалгахад зориулагдсан; хүсэлтийн кодыг орлохгүй.
+          </p>
+          <p>
+            <strong>Ашиглах боломжтой TPM 2.0 шаардлагатай.</strong>
+            TPM 2.0 байхгүй эсвэл ашиглах боломжгүй бол лиценз олгохгүй.
+            Шалтгаан нь суулгагч болон Civil 3D-ийн лицензийн цонхонд харагдана.
+          </p>
         </details>
         <form id="request-form" class="form">
-          <label>Компьютерийн дугаар
-            <input id="machine" class="mono" maxlength="19" placeholder="XXXX-XXXX-XXXX-XXXX" required autocomplete="off" spellcheck="false">
-          </label>
+          <div class="request-code-field">
+            <label for="request-code">Хүсэлтийн код</label>
+            <textarea id="request-code"
+                      class="mono"
+                      rows="3"
+                      maxlength="2200"
+                      placeholder="ZLWK1.…"
+                      required
+                      autocomplete="off"
+                      autocapitalize="off"
+                      spellcheck="false"
+                      wrap="soft"
+                      dir="ltr"
+                      aria-describedby="request-code-hint request-machine request-msg"></textarea>
+            <p id="request-code-hint" class="muted">
+              Код ойролцоогоор 400 тэмдэгттэй байх нь хэвийн. Бүтнээр нь хуулж
+              тавина уу. Талбарт хэд хэдэн мөрөөр харагдаж болно.
+            </p>
+            <p id="request-machine" class="muted mono"
+               aria-live="polite" aria-atomic="true"></p>
+          </div>
           <label>Төрөл
             <select id="kind">
               <option value="new">Шинэ лиценз</option>

@@ -6,9 +6,23 @@ import {
 import { INSTALLER_PATH } from './portal-config.js';
 import { profileModel } from './profile-model.js';
 import { renderProfile } from './profile-view.js';
+import { parseRequestCode } from '../supabase/functions/_shared/license-core.js';
 
 const here = `${location.origin}${location.pathname}`;
-const midFromUrl = new URLSearchParams(location.search).get('mid');
+// Licence v3 (2026-10-14): the plug-in and setup open this page with the request code —
+// the computer's TPM public key — in the FRAGMENT, which the browser never sends to the
+// server. It is taken out of the address bar at once so it is not bookmarked or shared.
+// A ?mid= link comes from a plug-in older than v3, which can no longer be licensed.
+// Kept in sessionStorage (this tab only) so a sign-in round trip does not lose it — the
+// magic link and OAuth return to this page without the fragment (Astra, 2026-10-14).
+const CODE_KEY = 'zlw-request-code';
+const codeFromHash = new URLSearchParams(location.hash.slice(1)).get('code');
+if (codeFromHash) { try { sessionStorage.setItem(CODE_KEY, codeFromHash); } catch {} }
+let codeFromUrl = codeFromHash;
+if (!codeFromUrl) { try { codeFromUrl = sessionStorage.getItem(CODE_KEY); } catch {} }
+const legacyMidInUrl = new URLSearchParams(location.search).has('mid');
+if (codeFromHash || legacyMidInUrl) { history.replaceState(null, '', location.pathname); }
+let requestKey = null; // { body, machineId } once a request code has been read
 let myLicences = [];
 let myProfile = null;
 let myRequests = [];
@@ -70,7 +84,13 @@ async function start() {
     }
   });
   $('#installer').addEventListener('click', downloadInstaller);
-  if (midFromUrl) { $('#machine').value = formatMachine(midFromUrl); }
+  $('#request-code').addEventListener('input', () => { readRequestCode(); });
+  if (codeFromUrl) {
+    $('#request-code').value = codeFromUrl;
+    await readRequestCode();
+  } else if (legacyMidInUrl) {
+    say($('#request-msg'), 'LineWorks-ийн хуучин хувилбараас нээгдлээ. Шинэ хувилбарыг суулгаад ZLWLICENSE-ээс хүсэлтийн кодоо авна уу.', 'err');
+  }
   await render();
 }
 
@@ -154,18 +174,44 @@ function showProfile() {
     licences: myLicences,
     requests: myRequests,
     today: ubToday(),
-    currentMachine: midFromUrl ?? '',
+    currentMachine: requestKey?.machineId ?? '',
   }), { openRequest });
 }
 
 function openRequest(machineId, renewalLicenceId) {
+  // The identifier alone cannot be requested for since v3: the request code carries the key.
+  // The profile view still says which computer was meant; the code has to come from it.
   const renewal = renewalLicenceId != null;
-  if (machineId) { $('#machine').value = formatMachine(machineId); }
   $('#kind').value = renewal ? 'renewal' : 'new';
   $('#renews').value = renewal ? String(renewalLicenceId) : '';
   show($('#renews-label'), renewal);
+  if (machineId && requestKey?.machineId !== machineDigits(machineId)) {
+    say($('#request-msg'), `${formatMachine(machineId)} компьютер дээрх ZLWLICENSE-ийн хүсэлтийн кодыг буулгана уу.`);
+  }
   $('#request-form').scrollIntoView({ behavior: 'auto', block: 'start' });
-  (renewal ? $('#renews') : $('#machine')).focus({ preventScroll: true });
+  (renewal ? $('#renews') : $('#request-code')).focus({ preventScroll: true });
+}
+
+/** Reads the pasted request code and shows which computer it names. */
+let readRun = 0;
+async function readRequestCode() {
+  const run = ++readRun;
+  const text = $('#request-code').value.trim();
+  requestKey = null;
+  $('#request-machine').textContent = '';
+  if (!text) return null;
+  try {
+    const { machineId, body } = await parseRequestCode(text);
+    if (run !== readRun) return null;
+    requestKey = { body, machineId };
+    $('#request-machine').textContent = `Компьютерийн дугаар: ${formatMachine(machineId)}`;
+    say($('#request-msg'), '');
+    return requestKey;
+  } catch (error) {
+    if (run !== readRun) return null;
+    say($('#request-msg'), error.message, 'err');
+    return null;
+  }
 }
 
 function selectedAffiliation() {
@@ -397,13 +443,13 @@ async function saveProfile(event) {
 async function sendRequest(event) {
   event.preventDefault();
   if ($('#request-submit').disabled || !updateRequestGate()) return;
-  const machine = machineDigits($('#machine').value);
-  if (machine.length !== 16) {
-    say($('#request-msg'), 'Компьютерийн дугаар 16 оронтой (жишээ нь 3F2A-91C0-7B4E-D218) байх ёстой.', 'err');
+  const key = requestKey ?? await readRequestCode();
+  if (!key) {
+    say($('#request-msg'), 'Хүсэлтийн кодоо ZLWLICENSE цонхноос (эсвэл суулгагчаас) хуулж буулгана уу.', 'err');
     return;
   }
   const kind = $('#kind').value;
-  const row = { kind, machine_id: machine, note: $('#note').value.trim() };
+  const row = { kind, machine_id: key.machineId, machine_key: key.body, note: $('#note').value.trim() };
   if (kind === 'renewal') {
     const id = Number($('#renews').value);
     if (!id) { say($('#request-msg'), 'Сунгах лицензээ сонгоно уу.', 'err'); return; }
@@ -418,6 +464,7 @@ async function sendRequest(event) {
     if (error) throw error;
     submitted = true;
     $('#note').value = '';
+    try { sessionStorage.removeItem(CODE_KEY); } catch {}
   });
   if (run !== renderRun || !submitted) { updateRequestGate(); return; }
   await render();
