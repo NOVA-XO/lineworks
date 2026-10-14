@@ -348,9 +348,11 @@ async function loadUsers(current = () => true) {
   body.replaceChildren();
   for (const p of data) {
     let roleCell = ROLE_MN[p.role] ?? p.role;
-    if (canWrite && p.id !== me.id) {
+    // The admin role is given and taken only by the database owner (20261014000000_admin_cap.sql),
+    // so it is neither offered here nor editable on an admin's row.
+    if (canWrite && p.id !== me.id && p.role !== 'admin') {
       roleCell = el('select', { 'aria-label': 'Эрх', onchange: (e) => setRole(p.id, e.target.value) },
-        ...['user', 'viewer', 'admin'].map((r) => el('option', { value: r, selected: r === p.role }, ROLE_MN[r])));
+        ...['user', 'viewer'].map((r) => el('option', { value: r, selected: r === p.role }, ROLE_MN[r])));
     }
     body.append(el('tr', {},
       el('td', {}, p.email), el('td', {}, p.full_name),
