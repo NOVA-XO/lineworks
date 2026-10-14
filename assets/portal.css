@@ -860,6 +860,22 @@ code.mono {
 }
 .privacy-note li + li { margin-top: 8px; }
 
+/* «Компьютерийн дугаараа хэрхэн олох вэ?» — «Таны мэдээлэл»-ийн summary-тай ижил хэмжээ. */
+.machine-help {
+  margin-block: 4px 16px;
+  color: var(--ink-soft);
+  overflow-wrap: anywhere;
+}
+.machine-help summary {
+  min-height: 44px;
+  padding-block: 10px;
+  color: var(--ink);
+  cursor: pointer;
+}
+.machine-help ol { padding-left: 1.4em; }
+.machine-help li + li { margin-top: 8px; }
+.machine-help p { margin-block: 8px; }
+
 .privacy-note > h2 { font-size: 1.15rem; margin-bottom: 12px; }
 
 /* Нэвтрэх / MFA хэсэг төвд нарийн байх үед мэдэгдэл ба тайлбар ижил өргөнтэй. */

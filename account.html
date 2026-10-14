@@ -220,9 +220,24 @@ if (window.top === window.self) {
           Компьютерийн дугаарыг Civil 3D дээр <code>ZLWLICENSE</code> командаар харна. Тэр цонхны
           «Хүсэлт илгээх…» товч энэ хуудсыг дугаартай нь нээдэг. Лиценз зөвхөн тэр компьютерт ажиллана.
         </p>
+        <details class="machine-help">
+          <summary>Компьютерийн дугаараа хэрхэн олох вэ?</summary>
+          <p>Дугаар нь <code>XXXX-XXXX-XXXX-XXXX</code> хэлбэртэй, 16 тэмдэгт. Хөтөч үүнийг уншиж чадахгүй тул
+            лиценз ашиглах компьютер дээрээ доорх аль нэг замаар хуулна.</p>
+          <ol>
+            <li><strong>Суулгагчаас.</strong> <a href="download.html">ZenithLineWorksSetup.exe</a>-г ажиллуулахад
+              лицензийн алхамд «Компьютерийн дугаар» харагдана — «Хуулах» товчийг дарна.</li>
+            <li><strong>Civil 3D-ээс.</strong> Командын мөрөнд <code>ZLWLICENSE</code> гэж бичээд Enter. Нээгдсэн цонхны
+              «Компьютерийн дугаар» хэсгийн «Хуулах» товчийг дарна.</li>
+            <li><strong>Ribbon-оос.</strong> <strong>LineWorks</strong> таб → <strong>Тухай</strong> → «Лиценз» товч —
+              мөн <code>ZLWLICENSE</code> цонхыг нээнэ.</li>
+          </ol>
+          <p>Хуулсан дугаараа доорх талбарт тавина. «Тухай» цонхонд дугаарын дунд хэсэг <code>••••</code>-ээр
+            нуугдсан байдаг — тэндээс бүү хуулаарай.</p>
+        </details>
         <form id="request-form" class="form">
           <label>Компьютерийн дугаар
-            <input id="machine" class="mono" maxlength="19" placeholder="3F2A-91C0-7B4E-D218" required autocomplete="off" spellcheck="false">
+            <input id="machine" class="mono" maxlength="19" placeholder="XXXX-XXXX-XXXX-XXXX" required autocomplete="off" spellcheck="false">
           </label>
           <label>Төрөл
             <select id="kind">
