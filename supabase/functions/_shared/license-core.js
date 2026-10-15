@@ -170,3 +170,99 @@ export async function issueLicense(secrets, claim) {
   ].join('\n');
   return { text, armoured, mid };
 }
+
+/* =============================================================================
+   Онлайн шалгалт — 7 хоногийн ТҮРЭЭС (эзэн, 2026-10-15).
+
+   1. Сорилт: сервер 32 байт санамсаргүй тоог компьютерийн TPM түлхүүрээр (RSA-OAEP-SHA256)
+      шифрлэж, хариутай нь тулгах ТАСАЛБАР-ын хамт буцаана. Тасалбар = b64url(JSON) + "." +
+      HMAC-SHA256(ticketKey, тэр) — сервер юу ч хадгалахгүй, 120 секунд хүчинтэй.
+   2. Хариу: plugin TPM-ээр тайлсан тоогоо тасалбартай буцаана. Хэш таарвал тэр компьютер
+      үнэхээр TPM-ийн түлхүүртэй гэсэн үг — лицензийн файлыг хуулсан хүн хариулж чадахгүй.
+   3. Түрээс: "ZLWL1." + b64url(payload) + "." + ECDSA P-256 (лицензийн гарын үсгийн ижил
+      түлхүүр). payload = { v: 1, no, mid, iat, exp } — дараалал ТОГТМОЛ, UTC ISO цаг.
+      "ZLWL1." угтвар нь гарын үсгийн оролтыг лицензийнхээс («ZLW1.») ялгана.
+   ticketKey = ZLW_LEASE_SECRET — ЗӨВХӨН серверт (Astra, 2026-10-15: өгөгдлийн түлхүүрээс гаргавал
+   лицензтэй хэрэглэгч бүр тасалбар хуурамчаар үүсгэж чадна — тэр түлхүүрийг plugin тайлдаг).
+   Сорилтын шифрлэсэн агуулга нь ЗААВАЛ "ZLW-CHALLENGE-1|" (16 байт) + 32 байт: plugin өөр хэлбэрийг
+   тайлсан ч буцаахгүй — тэгэхгүй бол TLS-ийн дунд орсон хүн лицензийн dk-г «сорилт» болгон илгээж
+   өгөгдлийн түлхүүрийг TPM-ээр тайлуулах боломжтой.
+   ========================================================================== */
+
+export const LEASE_PREFIX = 'ZLWL1';
+export const LEASE_HOURS = 7 * 24;
+export const TICKET_SECONDS = 120;
+export const CHALLENGE_MAGIC = 'ZLW-CHALLENGE-1|';
+const MAX_TICKET = 1024;
+const MAX_ANSWER = 64;
+
+async function ticketKey(leaseSecretB64) {
+  const secret = fromBase64(leaseSecretB64);
+  if (secret.length < 32) { throw new Error('ZLW_LEASE_SECRET 32 байтаас богино.'); }
+  return crypto.subtle.importKey('raw', secret, { name: 'HMAC', hash: 'SHA-256' }, false, ['sign', 'verify']);
+}
+
+async function sha256b64(bytes) {
+  return b64url(new Uint8Array(await crypto.subtle.digest('SHA-256', bytes)));
+}
+
+/**
+ * @param {{ leaseSecretB64: string }} secrets
+ * @param {{ no: string, mid: string, machineKey: string }} licence  machineKey = b64url SPKI
+ * @param {Date} [now]
+ * @returns {Promise<{ challenge: string, ticket: string }>}
+ */
+export async function makeLeaseChallenge(secrets, licence, now = new Date()) {
+  const { key } = await parseRequestCode(`${REQUEST_PREFIX}.${licence.machineKey}`);
+  const nonce = crypto.getRandomValues(new Uint8Array(32));
+  const magic = enc.encode(CHALLENGE_MAGIC);
+  const plain = new Uint8Array(magic.length + nonce.length);
+  plain.set(magic, 0);
+  plain.set(nonce, magic.length);
+  const challenge = b64url(new Uint8Array(await crypto.subtle.encrypt({ name: 'RSA-OAEP' }, key, plain)));
+  const body = b64url(enc.encode(JSON.stringify({
+    no: licence.no, mid: licence.mid, exp: Math.floor(now.getTime() / 1000) + TICKET_SECONDS, h: await sha256b64(nonce),
+  })));
+  const mac = b64url(new Uint8Array(await crypto.subtle.sign('HMAC', await ticketKey(secrets.leaseSecretB64), enc.encode(body))));
+  return { challenge, ticket: `${body}.${mac}` };
+}
+
+/**
+ * Checks the answer to a challenge. Returns the licence number and machine it was for.
+ * @returns {Promise<{ no: string, mid: string }>}
+ */
+export async function checkLeaseAnswer(secrets, ticket, answer, now = new Date()) {
+  const bad = new Error('Онлайн шалгалт амжилтгүй — дахин оролдоно уу.');
+  if (String(ticket ?? '').length > MAX_TICKET || String(answer ?? '').length > MAX_ANSWER) { throw bad; }
+  const [body, mac, extra] = String(ticket ?? '').split('.');
+  if (!body || !mac || extra !== undefined) { throw bad; }
+  let ok;
+  try {
+    ok = await crypto.subtle.verify('HMAC', await ticketKey(secrets.leaseSecretB64), fromB64url(mac), enc.encode(body));
+  } catch { throw bad; }
+  if (!ok) { throw bad; }
+  let claim;
+  try { claim = JSON.parse(new TextDecoder().decode(fromB64url(body))); } catch { throw bad; }
+  if (typeof claim.exp !== 'number' || claim.exp < Math.floor(now.getTime() / 1000)) { throw bad; }
+  let nonce;
+  try { nonce = fromB64url(String(answer ?? '')); } catch { throw bad; }
+  if (nonce.length !== 32 || await sha256b64(nonce) !== claim.h) { throw bad; }
+  return { no: claim.no, mid: claim.mid };
+}
+
+/**
+ * @param {{ privatePem: string }} secrets
+ * @param {{ no: string, mid: string }} licence
+ * @param {Date} [now]
+ * @returns {Promise<{ lease: string, exp: string }>}
+ */
+export async function issueLease(secrets, licence, now = new Date()) {
+  const iat = new Date(Math.floor(now.getTime() / 1000) * 1000);
+  const exp = new Date(iat.getTime() + LEASE_HOURS * 3600 * 1000);
+  const payload = { v: 1, no: licence.no, mid: normaliseMachineId(licence.mid), iat: iat.toISOString(), exp: exp.toISOString() };
+  const signing = `${LEASE_PREFIX}.${b64url(enc.encode(JSON.stringify(payload)))}`;
+  const key = await crypto.subtle.importKey(
+    'pkcs8', pemBody(secrets.privatePem), { name: 'ECDSA', namedCurve: 'P-256' }, false, ['sign']);
+  const signature = await crypto.subtle.sign({ name: 'ECDSA', hash: 'SHA-256' }, key, enc.encode(signing));
+  return { lease: `${signing}.${b64url(signature)}`, exp: payload.exp };
+}
